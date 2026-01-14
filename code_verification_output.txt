@@ -1,0 +1,75 @@
+================================================================================
+CODE EXAMPLE VERIFICATION
+================================================================================
+
+Found 16 documentation files to verify
+
+Verifying: dev-docs/README.md
+Verifying: dev-docs/architecture.md
+Verifying: dev-docs/backend/README.md
+Verifying: dev-docs/backend/agents.md
+Verifying: dev-docs/backend/architecture.md
+Verifying: dev-docs/backend/integrations.md
+Verifying: dev-docs/backend/memory.md
+Verifying: dev-docs/backend/security.md
+Verifying: dev-docs/frontend/README.md
+Verifying: dev-docs/frontend/architecture.md
+Verifying: dev-docs/frontend/components.md
+Verifying: dev-docs/frontend/electron-ipc.md
+Verifying: dev-docs/frontend/state-management.md
+Verifying: dev-docs/setup.md
+Verifying: dev-docs/testing.md
+Verifying: dev-docs/workflows.md
+
+================================================================================
+VERIFICATION RESULTS
+================================================================================
+
+STATISTICS:
+  Total documentation files: 16
+  Total code blocks: 455
+
+CODE BLOCKS BY LANGUAGE:
+  Python: 84
+    - Valid: 84
+    - Invalid: 0
+  TypeScript/JavaScript: 123
+    - Valid: 123
+    - Invalid: 0
+  JSON: 13
+    - Valid: 13
+    - Invalid: 0
+  Bash/Shell: 150
+
+FILE REFERENCES:
+  Total referenced: 133
+  Exist: 49
+  Missing: 84
+
+WARNINGS:
+  ⚠️  dev-docs/backend/README.md - Referenced file does not exist: validate_spec.py
+  ⚠️  dev-docs/backend/README.md - Referenced file does not exist: spec_runner.py
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: project_index.json
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: implementation_plan.json
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: codebase_map.json
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: auto-claude/cli.py
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: spec.md
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: app/models/user.py
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: app/routes/posts.py
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: app/routes/auth.py
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: critique_report.json
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: auto-claude/agents/my_agent.py
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: qa_report.md
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: context.json
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: auto-claude/prompts/my_agent.md
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: research.json
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: gotchas.md
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: src/pages/Dashboard.tsx
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: requirements.json
+  ⚠️  dev-docs/backend/agents.md - Referenced file does not exist: QA_FIX_REQUEST.md
+  ... and 64 more warnings
+
+================================================================================
+RESULT: ⚠️  WARNING - Many referenced files don't exist
+  (This may be acceptable if files are examples or cross-repo references)
+================================================================================
