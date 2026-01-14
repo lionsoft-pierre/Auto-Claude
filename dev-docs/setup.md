@@ -420,7 +420,7 @@ If you're still experiencing issues:
 Now that your environment is set up, check out:
 
 - **[Architecture Guide](architecture.md)** - Understanding the codebase
-- **[Development Guide](development.md)** - Contributing to the project
+- **[Development Workflows](workflows.md)** - Development workflows and processes
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Contribution guidelines
 - **[CLAUDE.md](../CLAUDE.md)** - Quick reference for common commands
 

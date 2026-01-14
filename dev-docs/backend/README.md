@@ -282,7 +282,6 @@ For in-depth information on specific backend components and concepts, see:
 
 ### Memory & Data
 - **[Memory System](./memory.md)** - Graphiti memory, session context, and cross-session retrieval
-- **[Context Management](./context.md)** - Codebase context gathering and service matching (if created)
 
 ### Integrations
 - **[External Integrations](./integrations.md)** - Linear, GitHub, and Electron MCP integrations
