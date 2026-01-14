@@ -87,3 +87,7 @@ _bmad
 _bmad-output
 
 .claude
+
+# Auto Claude generated files
+.security-key
+logs/security/
