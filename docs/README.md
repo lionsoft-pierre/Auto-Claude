@@ -21,14 +21,24 @@ Welcome to the Auto Claude developer documentation. This guide is designed to he
 - [Component System](./frontend/components.md) - React components and Radix UI integration
 - [State Management](./frontend/state-management.md) - Zustand stores and state patterns
 - [Electron IPC](./frontend/electron-ipc.md) - Inter-process communication and security
+- [Changelog System](./frontend/changelog.md) - AI-powered changelog and version suggestion
+- [Profile Management](./frontend/profile-management.md) - Claude profiles, rate limits, token encryption
 
 ### Backend Documentation
 - [Backend Overview](./backend/README.md) - Agent pipeline, folder structure, and CLI usage
 - [Backend Architecture](./backend/architecture.md) - Agent orchestration, security, and isolation
 - [Agent System](./backend/agents.md) - Planner, coder, and QA agents with workflow diagrams
+- [Data Models](./backend/data-models.md) - Implementation plan schemas (Subtask, Phase, Verification)
 - [Memory System](./backend/memory.md) - Graphiti knowledge graph and session context
+- [Ideation Module](./backend/ideation.md) - AI-powered code improvement suggestions
+- [Analysis Module](./backend/analysis.md) - Context detectors and project introspection
 - [Security Model](./backend/security.md) - Sandboxing, allowlisting, and worktree isolation
-- [Integrations](./backend/integrations.md) - Linear, GitHub, and Electron MCP integrations
+- [Integrations](./backend/integrations.md) - Linear, GitHub, GitLab, and MCP integrations
+- [Merge System](./backend/merge.md) - Intent-aware merge with AI conflict resolution
+
+### Cross-Cutting Concerns
+- [Phase Event Protocol](./phase-protocol.md) - Frontend-backend execution phase communication
+- [Shared Types Reference](./shared-types.md) - TypeScript types and constants
 
 ### Development Workflows
 - [Testing Guide](./testing.md) - Unit tests, E2E tests, and QA validation

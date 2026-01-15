@@ -173,6 +173,8 @@ LINEAR_TOOLS = [
 
 Integration for issue tracking and pull request management via the `gh` CLI tool.
 
+**Note:** Auto-Claude also supports [GitLab Integration](#gitlab-integration) with similar capabilities.
+
 ### Architecture
 
 Auto-Claude uses the **GitHub CLI (`gh`)** for all GitHub-related operations. This provides:
@@ -250,6 +252,140 @@ gh pr checks
 - **NEVER** run destructive commands (`push --force`, `reset --hard`) unless explicitly requested
 - **DO NOT** push to remote unless user explicitly asks
 - All branches stay **LOCAL** until user decides to push
+
+---
+
+## GitLab Integration
+
+Integration for issue tracking, merge request management, and CI/CD via the GitLab API.
+
+### Architecture
+
+Auto-Claude provides **full GitLab integration** as an alternative to GitHub, with feature parity for:
+- Issue management (view, create, triage, investigate)
+- Merge request creation and review
+- OAuth authentication
+- Automated fixes from issues/MRs
+- Release management
+
+**Design Principles:**
+- Mirror GitHub integration capabilities
+- OAuth-based authentication (no API keys required after setup)
+- Full MR review workflow with findings tracking
+- Autofix capabilities for issues and MR feedback
+
+### Configuration
+
+**OAuth Setup:**
+1. Go to GitLab > Settings > Applications
+2. Create a new application with scopes: `api`, `read_user`, `read_repository`
+3. Set redirect URI to the Auto-Claude callback URL
+4. Use the OAuth flow in the app to authenticate
+
+**No environment variables required** - authentication handled via OAuth flow in the desktop app.
+
+### Implementation
+
+**Key Files (Frontend):**
+
+| File | Purpose |
+|------|---------|
+| `main/ipc-handlers/gitlab/oauth-handlers.ts` | OAuth authentication flow |
+| `main/ipc-handlers/gitlab/issue-handlers.ts` | Issue CRUD operations |
+| `main/ipc-handlers/gitlab/merge-request-handlers.ts` | MR management |
+| `main/ipc-handlers/gitlab/mr-review-handlers.ts` | MR review with findings |
+| `main/ipc-handlers/gitlab/autofix-handlers.ts` | Automated fixes from issues/MRs |
+| `main/ipc-handlers/gitlab/triage-handlers.ts` | Issue triage and categorization |
+| `main/ipc-handlers/gitlab/investigation-handlers.ts` | Issue investigation |
+| `main/ipc-handlers/gitlab/release-handlers.ts` | Release management |
+
+**UI Components:**
+
+| Component | Purpose |
+|-----------|---------|
+| `renderer/components/gitlab-issues/` | Issue list, detail, and management |
+| `renderer/components/gitlab-merge-requests/` | MR list, detail, review findings |
+
+### Features
+
+**Issue Management:**
+- List issues from connected GitLab project
+- View issue details with comments
+- Create new issues
+- Triage issues (categorize, prioritize)
+- Investigate issues (analyze and document findings)
+- Autofix: Generate specs and fixes from issues
+
+**Merge Request Management:**
+- List open merge requests
+- View MR details with diff
+- Create merge requests from branches
+- Review MRs with structured findings
+- Autofix: Apply fixes from review feedback
+
+**OAuth Flow:**
+```typescript
+// Initiate OAuth
+await window.electronAPI.gitlabStartOAuth();
+
+// Check auth status
+const status = await window.electronAPI.gitlabGetAuthStatus();
+// { authenticated: true, user: { username: 'john', ... } }
+
+// Logout
+await window.electronAPI.gitlabLogout();
+```
+
+### Usage Examples
+
+**List Issues:**
+```typescript
+const issues = await window.electronAPI.gitlabListIssues({
+  projectId: 'mygroup/myproject',
+  state: 'opened',
+  labels: ['bug']
+});
+```
+
+**Create Merge Request:**
+```typescript
+const mr = await window.electronAPI.gitlabCreateMergeRequest({
+  projectId: 'mygroup/myproject',
+  sourceBranch: 'feature/auth',
+  targetBranch: 'main',
+  title: 'Add user authentication',
+  description: '## Summary\n- Added JWT auth\n- Created login endpoint'
+});
+```
+
+**Review MR with Findings:**
+```typescript
+const review = await window.electronAPI.gitlabReviewMergeRequest({
+  projectId: 'mygroup/myproject',
+  mrIid: 42
+});
+// Returns: { findings: [...], summary: '3 issues found', severity: 'medium' }
+```
+
+### Comparison with GitHub
+
+| Feature | GitHub | GitLab |
+|---------|--------|--------|
+| Authentication | `gh` CLI | OAuth |
+| Issues | Yes | Yes |
+| Pull/Merge Requests | Yes | Yes |
+| Code Review | Yes | Yes |
+| Autofix from Issues | Yes | Yes |
+| Autofix from Reviews | Yes | Yes |
+| CI/CD Integration | `gh pr checks` | MR pipelines |
+| Releases | `gh release` | Yes |
+
+### Important Notes
+
+- GitLab integration is **frontend-only** (IPC handlers in Electron main process)
+- Unlike GitHub (`gh` CLI), GitLab uses direct API calls via OAuth
+- Both integrations can be used in the same project (e.g., mirror repos)
+- Autofix capabilities work identically for both platforms
 
 ---
 
@@ -434,6 +570,7 @@ You can use Context7 to look up current documentation:
 |-------------|----------------|--------------|---------|
 | Linear | `LINEAR_API_KEY` | All (via Python orchestrator) | Progress tracking |
 | GitHub | `gh` CLI auth | All | Issue/PR management |
+| GitLab | OAuth (via app) | Frontend only | Issue/MR management |
 | Electron MCP | `ELECTRON_MCP_ENABLED=true` | QA agents only | E2E testing |
 | Context7 MCP | None (always enabled) | All | Documentation lookup |
 
