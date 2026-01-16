@@ -1,6 +1,6 @@
 # Story 4.3: Sprint Status Tracking
 
-Status: ready-for-dev
+Status: dev-complete
 
 ## Story
 
@@ -370,6 +370,23 @@ export const SprintList: React.FC = () => {
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5
+
 ### Debug Log References
+N/A - No errors during implementation
+
 ### Completion Notes List
+- Created SprintStatusBadge.tsx with status visualization (icons and colors)
+- Implemented SprintList.tsx with sprint stats and progress
+- Added startSprint and completeSprint IPC handlers
+- Implemented status state machine: not_started -> in_progress -> completed
+- Only one sprint can be in_progress at a time (validation in handlers)
+- Auto-marks pending assignments as completed when sprint completes
+- Added onSprintStatusChanged event for real-time updates
+- SprintManager.tsx orchestrates all sprint components together
+
 ### File List
+- apps/frontend/src/renderer/components/planning/sprints/SprintStatusBadge.tsx - New status badge
+- apps/frontend/src/renderer/components/planning/sprints/SprintList.tsx - New sprint list with stats
+- apps/frontend/src/renderer/components/planning/sprints/SprintManager.tsx - Main orchestrator
+- apps/frontend/src/main/ipc-handlers/planning-handlers.ts - Added status handlers

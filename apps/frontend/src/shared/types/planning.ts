@@ -245,3 +245,64 @@ export interface StoryConversionResult {
   success: boolean;
   error?: string;
 }
+
+/**
+ * Sprint status for execution tracking (Story 4.1, 4.3)
+ */
+export type SprintStatus = 'not_started' | 'in_progress' | 'completed';
+
+/**
+ * Sprint assignment status (Story 4.1)
+ */
+export type SprintAssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+
+/**
+ * Sprint definition (Story 4.1)
+ */
+export interface Sprint {
+  id: string;
+  name: string;
+  status: SprintStatus;
+  color: string;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+/**
+ * Sprint assignment linking task to sprint (Story 4.1, 4.2)
+ */
+export interface SprintAssignment {
+  taskId: string;
+  storyId: string;
+  sprintId: string;
+  priority: number;
+  status: SprintAssignmentStatus;
+}
+
+/**
+ * Sprint queue data structure (Story 4.1, 4.2)
+ */
+export interface SprintQueue {
+  sprints: Sprint[];
+  assignments: SprintAssignment[];
+}
+
+/**
+ * Sprint statistics for display (Story 4.3)
+ */
+export interface SprintStats {
+  total: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  inProgress: number;
+}
+
+/**
+ * Priority reorder request (Story 4.2)
+ */
+export interface PriorityUpdate {
+  taskId: string;
+  priority: number;
+}

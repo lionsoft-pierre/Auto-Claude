@@ -14,6 +14,10 @@ import type {
   Story,
   StoryStatus,
   StoryConversionResult,
+  Sprint,
+  SprintAssignment,
+  SprintQueue,
+  PriorityUpdate,
   IPCResult
 } from '../../../shared/types';
 import { invokeIpc, createIpcListener, sendIpc, type IpcListenerCleanup } from './ipc-utils';
@@ -69,6 +73,22 @@ export interface PlanningAPI {
   convertStoryToTask: (projectId: string, storyId: string) => Promise<IPCResult<StoryConversionResult>>;
   convertStoriesToTasks: (projectId: string, storyIds: string[]) => Promise<IPCResult<StoryConversionResult[]>>;
   checkStoryDuplicate: (projectId: string, storyId: string) => Promise<IPCResult<{ isDuplicate: boolean; existingTaskId?: string }>>;
+
+  // Sprint management operations (Story 4.1)
+  listSprints: (projectId: string) => Promise<IPCResult<SprintQueue>>;
+  createSprint: (projectId: string, name: string) => Promise<IPCResult<Sprint>>;
+  deleteSprint: (projectId: string, sprintId: string) => Promise<IPCResult>;
+  assignTaskToSprint: (projectId: string, taskId: string, sprintId: string, storyId?: string) => Promise<IPCResult<SprintAssignment>>;
+  unassignTaskFromSprint: (projectId: string, taskId: string) => Promise<IPCResult>;
+
+  // Sprint queue operations (Story 4.2)
+  getSprintQueue: (projectId: string, sprintId: string) => Promise<IPCResult<SprintAssignment[]>>;
+  reorderSprintQueue: (projectId: string, sprintId: string, priorities: PriorityUpdate[]) => Promise<IPCResult>;
+
+  // Sprint status operations (Story 4.3)
+  startSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
+  completeSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
+  onSprintStatusChanged: (callback: (projectId: string, sprint: Sprint) => void) => IpcListenerCleanup;
 }
 
 /**
@@ -172,5 +192,38 @@ export const createPlanningAPI = (): PlanningAPI => ({
     invokeIpc(IPC_CHANNELS.PLANNING_STORIES_CONVERT_ALL, projectId, storyIds),
 
   checkStoryDuplicate: (projectId: string, storyId: string): Promise<IPCResult<{ isDuplicate: boolean; existingTaskId?: string }>> =>
-    invokeIpc(IPC_CHANNELS.PLANNING_STORY_CHECK_DUPLICATE, projectId, storyId)
+    invokeIpc(IPC_CHANNELS.PLANNING_STORY_CHECK_DUPLICATE, projectId, storyId),
+
+  // Sprint management operations (Story 4.1)
+  listSprints: (projectId: string): Promise<IPCResult<SprintQueue>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_LIST, projectId),
+
+  createSprint: (projectId: string, name: string): Promise<IPCResult<Sprint>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_CREATE, projectId, name),
+
+  deleteSprint: (projectId: string, sprintId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_DELETE, projectId, sprintId),
+
+  assignTaskToSprint: (projectId: string, taskId: string, sprintId: string, storyId?: string): Promise<IPCResult<SprintAssignment>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_ASSIGN, projectId, taskId, sprintId, storyId),
+
+  unassignTaskFromSprint: (projectId: string, taskId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_UNASSIGN, projectId, taskId),
+
+  // Sprint queue operations (Story 4.2)
+  getSprintQueue: (projectId: string, sprintId: string): Promise<IPCResult<SprintAssignment[]>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_QUEUE_GET, projectId, sprintId),
+
+  reorderSprintQueue: (projectId: string, sprintId: string, priorities: PriorityUpdate[]): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_QUEUE_REORDER, projectId, sprintId, priorities),
+
+  // Sprint status operations (Story 4.3)
+  startSprint: (projectId: string, sprintId: string): Promise<IPCResult<Sprint>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_START, projectId, sprintId),
+
+  completeSprint: (projectId: string, sprintId: string): Promise<IPCResult<Sprint>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_COMPLETE, projectId, sprintId),
+
+  onSprintStatusChanged: (callback: (projectId: string, sprint: Sprint) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_SPRINT_STATUS_CHANGED, callback)
 });

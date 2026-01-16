@@ -1,6 +1,6 @@
 # Story 4.1: Sprint Tagging and Assignment
 
-Status: ready-for-dev
+Status: dev-complete
 
 ## Story
 
@@ -401,6 +401,31 @@ export const SprintSelector: React.FC<Props> = ({ taskId, currentSprintId }) => 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5
+
 ### Debug Log References
+N/A - No errors during implementation
+
 ### Completion Notes List
+- Created sprint types in planning.ts (Sprint, SprintAssignment, SprintQueue, SprintStatus, SprintAssignmentStatus, SprintStats, PriorityUpdate)
+- Added 11 IPC channels for sprint operations (list, create, delete, assign, unassign, queue get/reorder, start, complete, status changed)
+- Implemented IPC handlers with sprint queue persistence to sprint-queue.json
+- Created sprint-store.ts with Zustand for state management
+- Created SprintBadge.tsx, SprintSelector.tsx, SprintStatusBadge.tsx, SprintList.tsx components
+- Added i18n translations for sprints in both English and French
+- Updated browser-mock.ts with sprint mocks
+
 ### File List
+- apps/frontend/src/shared/types/planning.ts - Added sprint types
+- apps/frontend/src/shared/constants/ipc.ts - Added sprint IPC channels
+- apps/frontend/src/shared/types/ipc.ts - Added sprint methods to ElectronAPI
+- apps/frontend/src/preload/api/modules/planning-api.ts - Added sprint API
+- apps/frontend/src/main/ipc-handlers/planning-handlers.ts - Added sprint handlers
+- apps/frontend/src/renderer/stores/sprint-store.ts - New sprint store
+- apps/frontend/src/renderer/components/planning/sprints/SprintBadge.tsx - New
+- apps/frontend/src/renderer/components/planning/sprints/SprintSelector.tsx - New
+- apps/frontend/src/renderer/components/planning/sprints/SprintStatusBadge.tsx - New
+- apps/frontend/src/renderer/components/planning/sprints/SprintList.tsx - New
+- apps/frontend/src/shared/i18n/locales/en/planning.json - Added sprints section
+- apps/frontend/src/shared/i18n/locales/fr/planning.json - Added sprints section
+- apps/frontend/src/renderer/lib/browser-mock.ts - Added sprint mocks

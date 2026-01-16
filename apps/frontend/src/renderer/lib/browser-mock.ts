@@ -457,7 +457,74 @@ const browserMockAPI: ElectronAPI = {
   checkStoryDuplicate: async () => ({
     success: true,
     data: { isDuplicate: false }
-  })
+  }),
+
+  // Sprint management operations (Story 4.1)
+  listSprints: async () => ({
+    success: true,
+    data: { sprints: [], assignments: [] }
+  }),
+  createSprint: async (_projectId: string, name: string) => ({
+    success: true,
+    data: {
+      id: `sprint-${Date.now()}`,
+      name,
+      status: 'not_started' as const,
+      color: '#4F46E5',
+      createdAt: new Date().toISOString()
+    }
+  }),
+  deleteSprint: async () => ({
+    success: true
+  }),
+  assignTaskToSprint: async (_projectId: string, taskId: string, sprintId: string, storyId?: string) => ({
+    success: true,
+    data: {
+      taskId,
+      storyId: storyId || '',
+      sprintId,
+      priority: 1,
+      status: 'pending' as const
+    }
+  }),
+  unassignTaskFromSprint: async () => ({
+    success: true
+  }),
+
+  // Sprint queue operations (Story 4.2)
+  getSprintQueue: async () => ({
+    success: true,
+    data: []
+  }),
+  reorderSprintQueue: async () => ({
+    success: true
+  }),
+
+  // Sprint status operations (Story 4.3)
+  startSprint: async (_projectId: string, sprintId: string) => ({
+    success: true,
+    data: {
+      id: sprintId,
+      name: 'Mock Sprint',
+      status: 'in_progress' as const,
+      color: '#4F46E5',
+      createdAt: new Date().toISOString(),
+      startedAt: new Date().toISOString()
+    }
+  }),
+  completeSprint: async (_projectId: string, sprintId: string) => ({
+    success: true,
+    data: {
+      id: sprintId,
+      name: 'Mock Sprint',
+      status: 'completed' as const,
+      color: '#4F46E5',
+      createdAt: new Date().toISOString(),
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString()
+    }
+  }),
+  onSprintStatusChanged: () => () => {}
 };
 
 /**

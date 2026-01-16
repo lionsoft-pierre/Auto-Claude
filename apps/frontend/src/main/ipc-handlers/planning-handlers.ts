@@ -23,7 +23,12 @@ import type {
   StoryStatus,
   StoryMetadata,
   StoryConversionResult,
-  TestScope
+  TestScope,
+  Sprint,
+  SprintAssignment,
+  SprintQueue,
+  SprintStatus,
+  PriorityUpdate
 } from '../../shared/types';
 import { projectStore } from '../project-store';
 
@@ -51,6 +56,67 @@ const ARTIFACT_TITLES: Record<string, string> = {
   'architecture': 'Architecture',
   'epics': 'Epics'
 };
+
+/**
+ * Sprint color palette (Story 4.1)
+ */
+const SPRINT_COLORS = [
+  '#4F46E5', // Indigo
+  '#0891B2', // Cyan
+  '#059669', // Emerald
+  '#D97706', // Amber
+  '#DC2626', // Red
+  '#7C3AED', // Violet
+  '#2563EB', // Blue
+  '#DB2777'  // Pink
+];
+
+/**
+ * Get sprint queue file path
+ */
+function getSprintQueuePath(projectPath: string): string {
+  return path.join(projectPath, '.auto-claude', 'planning', 'sprint-queue.json');
+}
+
+/**
+ * Load sprint queue from file
+ */
+function loadSprintQueue(projectPath: string): SprintQueue {
+  const queuePath = getSprintQueuePath(projectPath);
+  if (existsSync(queuePath)) {
+    const content = readFileSync(queuePath, 'utf-8');
+    return JSON.parse(content);
+  }
+  return { sprints: [], assignments: [] };
+}
+
+/**
+ * Save sprint queue to file
+ */
+function saveSprintQueue(projectPath: string, queue: SprintQueue): void {
+  ensurePlanningDir(projectPath);
+  const queuePath = getSprintQueuePath(projectPath);
+  writeFileSync(queuePath, JSON.stringify(queue, null, 2), 'utf-8');
+}
+
+/**
+ * Get the next available sprint color
+ */
+function getNextSprintColor(existingSprints: Sprint[]): string {
+  const usedColors = existingSprints.map(s => s.color);
+  const availableColor = SPRINT_COLORS.find(c => !usedColors.includes(c));
+  return availableColor || SPRINT_COLORS[existingSprints.length % SPRINT_COLORS.length];
+}
+
+/**
+ * Send sprint status changed event to all windows
+ */
+function sendSprintStatusChanged(projectId: string, sprint: Sprint): void {
+  const windows = BrowserWindow.getAllWindows();
+  for (const win of windows) {
+    win.webContents.send(IPC_CHANNELS.PLANNING_SPRINT_STATUS_CHANGED, projectId, sprint);
+  }
+}
 
 /**
  * Get the planning session file path for a project
@@ -1772,6 +1838,299 @@ so that **the system provides this functionality**.
       }
 
       return { success: true, data: results };
+    }
+  );
+
+  // ============================================================================
+  // Sprint Management Operations (Story 4.1)
+  // ============================================================================
+
+  /**
+   * List all sprints and assignments
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SPRINT_LIST,
+    async (_event, projectId: string): Promise<IPCResult<SprintQueue>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+      return { success: true, data: queue };
+    }
+  );
+
+  /**
+   * Create a new sprint
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SPRINT_CREATE,
+    async (_event, projectId: string, name: string): Promise<IPCResult<Sprint>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      const newSprint: Sprint = {
+        id: randomUUID(),
+        name,
+        status: 'not_started',
+        color: getNextSprintColor(queue.sprints),
+        createdAt: new Date().toISOString()
+      };
+
+      queue.sprints.push(newSprint);
+      saveSprintQueue(project.path, queue);
+
+      return { success: true, data: newSprint };
+    }
+  );
+
+  /**
+   * Delete a sprint
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SPRINT_DELETE,
+    async (_event, projectId: string, sprintId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      // Remove the sprint
+      const sprintIndex = queue.sprints.findIndex(s => s.id === sprintId);
+      if (sprintIndex === -1) {
+        return { success: false, error: 'Sprint not found' };
+      }
+
+      // Don't allow deletion of in_progress sprints
+      if (queue.sprints[sprintIndex].status === 'in_progress') {
+        return { success: false, error: 'Cannot delete an in-progress sprint' };
+      }
+
+      queue.sprints.splice(sprintIndex, 1);
+
+      // Remove all assignments for this sprint
+      queue.assignments = queue.assignments.filter(a => a.sprintId !== sprintId);
+
+      saveSprintQueue(project.path, queue);
+
+      return { success: true };
+    }
+  );
+
+  /**
+   * Assign a task to a sprint
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SPRINT_ASSIGN,
+    async (_event, projectId: string, taskId: string, sprintId: string, storyId?: string): Promise<IPCResult<SprintAssignment>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      // Verify sprint exists
+      const sprint = queue.sprints.find(s => s.id === sprintId);
+      if (!sprint) {
+        return { success: false, error: 'Sprint not found' };
+      }
+
+      // Check if task is already assigned
+      const existingIndex = queue.assignments.findIndex(a => a.taskId === taskId);
+      if (existingIndex !== -1) {
+        // Update existing assignment
+        queue.assignments[existingIndex].sprintId = sprintId;
+        saveSprintQueue(project.path, queue);
+        return { success: true, data: queue.assignments[existingIndex] };
+      }
+
+      // Calculate next priority (append to end)
+      const sprintAssignments = queue.assignments.filter(a => a.sprintId === sprintId);
+      const nextPriority = sprintAssignments.length > 0
+        ? Math.max(...sprintAssignments.map(a => a.priority)) + 1
+        : 1;
+
+      const assignment: SprintAssignment = {
+        taskId,
+        storyId: storyId || '',
+        sprintId,
+        priority: nextPriority,
+        status: 'pending'
+      };
+
+      queue.assignments.push(assignment);
+      saveSprintQueue(project.path, queue);
+
+      return { success: true, data: assignment };
+    }
+  );
+
+  /**
+   * Unassign a task from its sprint
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SPRINT_UNASSIGN,
+    async (_event, projectId: string, taskId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      const assignmentIndex = queue.assignments.findIndex(a => a.taskId === taskId);
+      if (assignmentIndex === -1) {
+        return { success: false, error: 'Assignment not found' };
+      }
+
+      queue.assignments.splice(assignmentIndex, 1);
+      saveSprintQueue(project.path, queue);
+
+      return { success: true };
+    }
+  );
+
+  // ============================================================================
+  // Sprint Queue Operations (Story 4.2)
+  // ============================================================================
+
+  /**
+   * Get queue for a specific sprint
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_QUEUE_GET,
+    async (_event, projectId: string, sprintId: string): Promise<IPCResult<SprintAssignment[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      // Filter and sort by priority
+      const sprintQueue = queue.assignments
+        .filter(a => a.sprintId === sprintId)
+        .sort((a, b) => a.priority - b.priority);
+
+      return { success: true, data: sprintQueue };
+    }
+  );
+
+  /**
+   * Reorder sprint queue priorities
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_QUEUE_REORDER,
+    async (_event, projectId: string, sprintId: string, priorities: PriorityUpdate[]): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      // Update priorities
+      for (const update of priorities) {
+        const assignment = queue.assignments.find(
+          a => a.taskId === update.taskId && a.sprintId === sprintId
+        );
+        if (assignment) {
+          assignment.priority = update.priority;
+        }
+      }
+
+      saveSprintQueue(project.path, queue);
+
+      return { success: true };
+    }
+  );
+
+  // ============================================================================
+  // Sprint Status Operations (Story 4.3)
+  // ============================================================================
+
+  /**
+   * Start a sprint
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SPRINT_START,
+    async (_event, projectId: string, sprintId: string): Promise<IPCResult<Sprint>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      const sprint = queue.sprints.find(s => s.id === sprintId);
+      if (!sprint) {
+        return { success: false, error: 'Sprint not found' };
+      }
+
+      if (sprint.status !== 'not_started') {
+        return { success: false, error: 'Sprint can only be started from not_started status' };
+      }
+
+      // Check if another sprint is already in progress
+      const inProgressSprint = queue.sprints.find(s => s.status === 'in_progress');
+      if (inProgressSprint) {
+        return { success: false, error: `Sprint "${inProgressSprint.name}" is already in progress` };
+      }
+
+      sprint.status = 'in_progress';
+      sprint.startedAt = new Date().toISOString();
+
+      saveSprintQueue(project.path, queue);
+      sendSprintStatusChanged(projectId, sprint);
+
+      return { success: true, data: sprint };
+    }
+  );
+
+  /**
+   * Complete a sprint
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SPRINT_COMPLETE,
+    async (_event, projectId: string, sprintId: string): Promise<IPCResult<Sprint>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      const sprint = queue.sprints.find(s => s.id === sprintId);
+      if (!sprint) {
+        return { success: false, error: 'Sprint not found' };
+      }
+
+      if (sprint.status !== 'in_progress') {
+        return { success: false, error: 'Sprint can only be completed from in_progress status' };
+      }
+
+      sprint.status = 'completed';
+      sprint.completedAt = new Date().toISOString();
+
+      // Mark all pending assignments as completed
+      for (const assignment of queue.assignments) {
+        if (assignment.sprintId === sprintId && assignment.status === 'pending') {
+          assignment.status = 'completed';
+        }
+      }
+
+      saveSprintQueue(project.path, queue);
+      sendSprintStatusChanged(projectId, sprint);
+
+      return { success: true, data: sprint };
     }
   );
 }

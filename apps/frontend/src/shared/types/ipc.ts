@@ -118,7 +118,11 @@ import type {
   StorySummary,
   Story,
   StoryStatus,
-  StoryConversionResult
+  StoryConversionResult,
+  Sprint,
+  SprintAssignment,
+  SprintQueue,
+  PriorityUpdate
 } from './planning';
 import type {
   LinearTeam,
@@ -864,6 +868,22 @@ export interface ElectronAPI {
   convertStoryToTask: (projectId: string, storyId: string) => Promise<IPCResult<StoryConversionResult>>;
   convertStoriesToTasks: (projectId: string, storyIds: string[]) => Promise<IPCResult<StoryConversionResult[]>>;
   checkStoryDuplicate: (projectId: string, storyId: string) => Promise<IPCResult<{ isDuplicate: boolean; existingTaskId?: string }>>;
+
+  // Sprint management operations (Story 4.1)
+  listSprints: (projectId: string) => Promise<IPCResult<SprintQueue>>;
+  createSprint: (projectId: string, name: string) => Promise<IPCResult<Sprint>>;
+  deleteSprint: (projectId: string, sprintId: string) => Promise<IPCResult>;
+  assignTaskToSprint: (projectId: string, taskId: string, sprintId: string, storyId?: string) => Promise<IPCResult<SprintAssignment>>;
+  unassignTaskFromSprint: (projectId: string, taskId: string) => Promise<IPCResult>;
+
+  // Sprint queue operations (Story 4.2)
+  getSprintQueue: (projectId: string, sprintId: string) => Promise<IPCResult<SprintAssignment[]>>;
+  reorderSprintQueue: (projectId: string, sprintId: string, priorities: PriorityUpdate[]) => Promise<IPCResult>;
+
+  // Sprint status operations (Story 4.3)
+  startSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
+  completeSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
+  onSprintStatusChanged: (callback: (projectId: string, sprint: Sprint) => void) => () => void;
 }
 
 declare global {

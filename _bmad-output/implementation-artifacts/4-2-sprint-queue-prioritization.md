@@ -1,6 +1,6 @@
 # Story 4.2: Sprint Queue Prioritization
 
-Status: ready-for-dev
+Status: dev-complete
 
 ## Story
 
@@ -377,6 +377,20 @@ reorderPriorities: async (sprintId: string, newPriorities: { taskId: string; pri
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5
+
 ### Debug Log References
+N/A - No errors during implementation
+
 ### Completion Notes List
+- Implemented SprintQueue.tsx with @dnd-kit for drag-and-drop reordering
+- Created SprintQueueItem.tsx with sortable functionality
+- Added reorderSprintQueue IPC handler for priority persistence
+- Queue reorders optimistically then persists to backend
+- Uses verticalListSortingStrategy for smooth sorting experience
+
 ### File List
+- apps/frontend/src/renderer/components/planning/sprints/SprintQueue.tsx - New drag-drop queue
+- apps/frontend/src/renderer/components/planning/sprints/SprintQueueItem.tsx - New sortable item
+- apps/frontend/src/main/ipc-handlers/planning-handlers.ts - Added reorder handler
+- apps/frontend/src/renderer/stores/sprint-store.ts - Added reorder functionality

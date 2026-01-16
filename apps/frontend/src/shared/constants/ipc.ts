@@ -570,5 +570,21 @@ export const IPC_CHANNELS = {
   // Planning story to task conversion (Story 3.3)
   PLANNING_STORY_CONVERT: 'planning:story:convert',
   PLANNING_STORIES_CONVERT_ALL: 'planning:stories:convertAll',
-  PLANNING_STORY_CHECK_DUPLICATE: 'planning:story:checkDuplicate'
+  PLANNING_STORY_CHECK_DUPLICATE: 'planning:story:checkDuplicate',
+
+  // Sprint management operations (Story 4.1)
+  PLANNING_SPRINT_LIST: 'planning:sprint:list',
+  PLANNING_SPRINT_CREATE: 'planning:sprint:create',
+  PLANNING_SPRINT_DELETE: 'planning:sprint:delete',
+  PLANNING_SPRINT_ASSIGN: 'planning:sprint:assign',
+  PLANNING_SPRINT_UNASSIGN: 'planning:sprint:unassign',
+
+  // Sprint queue operations (Story 4.2)
+  PLANNING_QUEUE_GET: 'planning:queue:get',
+  PLANNING_QUEUE_REORDER: 'planning:queue:reorder',
+
+  // Sprint status operations (Story 4.3)
+  PLANNING_SPRINT_START: 'planning:sprint:start',
+  PLANNING_SPRINT_COMPLETE: 'planning:sprint:complete',
+  PLANNING_SPRINT_STATUS_CHANGED: 'planning:sprint:statusChanged'
 } as const;

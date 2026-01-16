@@ -161,5 +161,30 @@
     "skip": "Skip",
     "update": "Update Existing",
     "viewStory": "View Story"
+  },
+  "sprints": {
+    "title": "Sprints",
+    "noSprints": "No sprints created yet",
+    "selectSprint": "Select a sprint to view its queue",
+    "createNew": "Create Sprint",
+    "newSprintPlaceholder": "Sprint name...",
+    "assignToSprint": "Assign to Sprint",
+    "unassign": "Remove from Sprint",
+    "delete": "Delete Sprint",
+    "start": "Start Sprint",
+    "complete": "Complete Sprint",
+    "tasksCompleted": "completed",
+    "noTasksInSprint": "No tasks in this sprint. Assign tasks from the story list or task board.",
+    "status": {
+      "notStarted": "Not Started",
+      "inProgress": "In Progress",
+      "completed": "Completed"
+    },
+    "assignmentStatus": {
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
   }
 }

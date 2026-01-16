@@ -161,5 +161,30 @@
     "skip": "Ignorer",
     "update": "Mettre à jour",
     "viewStory": "Voir la story"
+  },
+  "sprints": {
+    "title": "Sprints",
+    "noSprints": "Aucun sprint créé",
+    "selectSprint": "Sélectionnez un sprint pour voir sa file d'attente",
+    "createNew": "Créer un sprint",
+    "newSprintPlaceholder": "Nom du sprint...",
+    "assignToSprint": "Assigner au sprint",
+    "unassign": "Retirer du sprint",
+    "delete": "Supprimer le sprint",
+    "start": "Démarrer le sprint",
+    "complete": "Terminer le sprint",
+    "tasksCompleted": "terminées",
+    "noTasksInSprint": "Aucune tâche dans ce sprint. Assignez des tâches depuis la liste des stories ou le tableau des tâches.",
+    "status": {
+      "notStarted": "Non démarré",
+      "inProgress": "En cours",
+      "completed": "Terminé"
+    },
+    "assignmentStatus": {
+      "pending": "En attente",
+      "inProgress": "En cours",
+      "completed": "Terminé",
+      "failed": "Échec"
+    }
   }
 }
