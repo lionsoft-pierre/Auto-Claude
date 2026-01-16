@@ -105,6 +105,11 @@ import type {
   RoadmapGenerationStatus
 } from './roadmap';
 import type {
+  PlanningSession,
+  Methodology,
+  PlanningStreamChunk
+} from './planning';
+import type {
   LinearTeam,
   LinearProject,
   LinearIssue,
@@ -800,6 +805,16 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Planning session operations (Story 1.1)
+  createPlanningSession: (projectId: string, projectName: string, methodology: Methodology) => Promise<IPCResult<PlanningSession>>;
+  loadPlanningSession: (projectId: string) => Promise<IPCResult<PlanningSession | null>>;
+  savePlanningSession: (session: PlanningSession) => Promise<IPCResult>;
+
+  // Planning chat operations (Story 1.2)
+  sendPlanningMessage: (projectId: string, sessionId: string, message: string) => void;
+  onPlanningChatStream: (callback: (projectId: string, chunk: PlanningStreamChunk) => void) => () => void;
+  onPlanningChatError: (callback: (projectId: string, error: string) => void) => () => void;
 }
 
 declare global {

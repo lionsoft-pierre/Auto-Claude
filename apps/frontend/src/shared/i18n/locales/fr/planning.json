@@ -1,0 +1,53 @@
+{
+  "title": "Mode Planification",
+  "newSession": "Nouvelle session de planification",
+  "resumeSession": "Reprendre la session",
+  "selectMethodology": "Sélectionner une méthodologie",
+  "startPlanning": "Commencer la planification",
+  "noActiveSession": "Aucune session de planification active",
+  "noActiveSessionDescription": "Commencez une nouvelle session de planification pour débuter une planification structurée avec la méthodologie BMAD.",
+  "methodology": {
+    "bmad": {
+      "name": "BMAD",
+      "description": "Business-driven Modular AI Development - Une approche structurée de la planification avec Brief, PRD, Architecture, Epics et Stories."
+    }
+  },
+  "session": {
+    "created": "Session créée",
+    "resumed": "Session reprise",
+    "saved": "Session sauvegardée",
+    "autoSaved": "Sauvegarde automatique"
+  },
+  "workflow": {
+    "brief": "Brief Produit",
+    "prd": "PRD",
+    "architecture": "Architecture",
+    "epics": "Epics",
+    "stories": "Stories"
+  },
+  "status": {
+    "idle": "Prêt",
+    "in_progress": "En cours",
+    "completed": "Terminé"
+  },
+  "errors": {
+    "loadFailed": "Échec du chargement de la session",
+    "saveFailed": "Échec de la sauvegarde de la session",
+    "createFailed": "Échec de la création de la session"
+  },
+  "chat": {
+    "startConversation": "Commencer une conversation",
+    "startConversationDescription": "Décrivez ce que vous souhaitez construire, et je vous aiderai à créer un plan structuré suivant la méthodologie BMAD.",
+    "inputPlaceholder": "Décrivez votre projet ou posez une question...",
+    "inputHint": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne",
+    "thinking": "Réflexion en cours...",
+    "you": "Vous",
+    "assistant": "Assistant",
+    "suggestions": {
+      "whatProject": "Quel projet souhaitez-vous planifier ?",
+      "helpDefine": "Aidez-moi à définir ma vision produit",
+      "needPRD": "J'ai besoin de créer un PRD",
+      "planArchitecture": "Planifions l'architecture"
+    }
+  }
+}

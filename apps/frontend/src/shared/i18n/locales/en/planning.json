@@ -1,0 +1,53 @@
+{
+  "title": "Planning Mode",
+  "newSession": "New Planning Session",
+  "resumeSession": "Resume Session",
+  "selectMethodology": "Select a Methodology",
+  "startPlanning": "Start Planning",
+  "noActiveSession": "No active planning session",
+  "noActiveSessionDescription": "Start a new planning session to begin structured planning with BMAD methodology.",
+  "methodology": {
+    "bmad": {
+      "name": "BMAD",
+      "description": "Business-driven Modular AI Development - A structured approach to planning with Brief, PRD, Architecture, Epics, and Stories."
+    }
+  },
+  "session": {
+    "created": "Session created",
+    "resumed": "Session resumed",
+    "saved": "Session saved",
+    "autoSaved": "Auto-saved"
+  },
+  "workflow": {
+    "brief": "Product Brief",
+    "prd": "PRD",
+    "architecture": "Architecture",
+    "epics": "Epics",
+    "stories": "Stories"
+  },
+  "status": {
+    "idle": "Ready",
+    "in_progress": "In Progress",
+    "completed": "Completed"
+  },
+  "errors": {
+    "loadFailed": "Failed to load session",
+    "saveFailed": "Failed to save session",
+    "createFailed": "Failed to create session"
+  },
+  "chat": {
+    "startConversation": "Start a Conversation",
+    "startConversationDescription": "Describe what you want to build, and I'll help you create a structured plan following the BMAD methodology.",
+    "inputPlaceholder": "Describe your project or ask a question...",
+    "inputHint": "Press Enter to send, Shift+Enter for new line",
+    "thinking": "Thinking...",
+    "you": "You",
+    "assistant": "Assistant",
+    "suggestions": {
+      "whatProject": "What project would you like to plan?",
+      "helpDefine": "Help me define my product vision",
+      "needPRD": "I need to create a PRD",
+      "planArchitecture": "Let's plan the architecture"
+    }
+  }
+}

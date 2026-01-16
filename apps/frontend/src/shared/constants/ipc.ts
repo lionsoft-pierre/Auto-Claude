@@ -522,5 +522,15 @@ export const IPC_CHANNELS = {
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
-  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
+  GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
+
+  // Planning operations (Story 1.1)
+  PLANNING_SESSION_CREATE: 'planning:session:create',
+  PLANNING_SESSION_LOAD: 'planning:session:load',
+  PLANNING_SESSION_SAVE: 'planning:session:save',
+
+  // Planning chat operations (Story 1.2)
+  PLANNING_CHAT_SEND: 'planning:chat:send',
+  PLANNING_CHAT_STREAM: 'planning:chat:stream',
+  PLANNING_CHAT_ERROR: 'planning:chat:error'
 } as const;

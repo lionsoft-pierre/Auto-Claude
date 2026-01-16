@@ -326,7 +326,40 @@ const browserMockAPI: ElectronAPI = {
   openLogsFolder: async () => ({ success: false, error: 'Not available in browser mode' }),
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
-  listLogFiles: async () => []
+  listLogFiles: async () => [],
+
+  // Planning Session Operations (Story 1.1)
+  createPlanningSession: async (projectId: string, projectName: string, methodology) => ({
+    success: true,
+    data: {
+      id: `session-${Date.now()}`,
+      projectName,
+      methodology,
+      status: 'idle' as const,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      currentWorkflow: null,
+      currentStep: 0,
+      completedWorkflows: [],
+      artifacts: {},
+      context: {},
+      messages: []
+    }
+  }),
+  loadPlanningSession: async () => ({
+    success: true,
+    data: null
+  }),
+  savePlanningSession: async () => ({
+    success: true
+  }),
+
+  // Planning Chat Operations (Story 1.2)
+  sendPlanningMessage: (projectId: string, sessionId: string, message: string) => {
+    console.warn('[Browser Mock] sendPlanningMessage called', { projectId, sessionId, message });
+  },
+  onPlanningChatStream: () => () => {},
+  onPlanningChatError: () => () => {}
 };
 
 /**

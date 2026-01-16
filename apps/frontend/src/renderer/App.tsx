@@ -44,6 +44,7 @@ import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
 import { AgentTools } from './components/AgentTools';
+import { PlanningView } from './components/planning/PlanningView';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
@@ -833,6 +834,9 @@ export function App() {
                 )}
                 {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
                   <Insights projectId={activeProjectId || selectedProjectId!} />
+                )}
+                {activeView === 'planning' && (activeProjectId || selectedProjectId) && (
+                  <PlanningView projectId={activeProjectId || selectedProjectId!} />
                 )}
                 {activeView === 'github-issues' && (activeProjectId || selectedProjectId) && (
                   <GitHubIssues
