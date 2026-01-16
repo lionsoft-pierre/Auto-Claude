@@ -108,7 +108,13 @@ import type {
   PlanningSession,
   PlanningSessionSummary,
   Methodology,
-  PlanningStreamChunk
+  PlanningStreamChunk,
+  WorkflowStep,
+  ArtifactSummary,
+  PlanningArtifact,
+  ArtifactType,
+  CheckpointResult,
+  CheckpointEntry
 } from './planning';
 import type {
   LinearTeam,
@@ -819,6 +825,24 @@ export interface ElectronAPI {
 
   // Planning session management (Story 1.3)
   listPlanningSessions: () => Promise<IPCResult<PlanningSessionSummary[]>>;
+
+  // Planning workflow operations (Story 2.1)
+  startPlanningWorkflow: (projectId: string, workflowId: WorkflowStep) => Promise<IPCResult>;
+  advancePlanningWorkflow: (projectId: string) => Promise<IPCResult<{ nextWorkflow: WorkflowStep | null }>>;
+  getPlanningWorkflowStatus: (projectId: string) => Promise<IPCResult<{ status: string; currentWorkflow: WorkflowStep | null }>>;
+
+  // Planning artifact operations (Story 2.2, 2.3, 2.4)
+  listPlanningArtifacts: (projectId: string) => Promise<IPCResult<ArtifactSummary[]>>;
+  loadPlanningArtifact: (projectId: string, artifactId: string) => Promise<IPCResult<PlanningArtifact>>;
+  savePlanningArtifact: (projectId: string, type: ArtifactType, content: string, title: string) => Promise<IPCResult<PlanningArtifact>>;
+  updatePlanningArtifact: (projectId: string, artifactId: string, content: string) => Promise<IPCResult<PlanningArtifact>>;
+  approvePlanningArtifact: (projectId: string, artifactId: string) => Promise<IPCResult>;
+  rejectPlanningArtifact: (projectId: string, artifactId: string) => Promise<IPCResult>;
+
+  // Planning git checkpoint operations (Story 2.6)
+  createPlanningCheckpoint: (projectId: string) => Promise<IPCResult<CheckpointResult>>;
+  listPlanningCheckpoints: (projectId: string) => Promise<IPCResult<CheckpointEntry[]>>;
+  viewArtifactAtCheckpoint: (projectId: string, commitHash: string, artifactPath: string) => Promise<IPCResult<string>>;
 }
 
 declare global {

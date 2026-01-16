@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ClipboardList, Plus, Loader2, Save } from 'lucide-react';
+import { ClipboardList, Plus, Loader2, Save, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { MethodologySelector } from './MethodologySelector';
 import { PlanningChat } from './PlanningChat';
 import { WorkflowProgress } from './WorkflowProgress';
+import { ArtifactPanel } from './ArtifactPanel';
+import { ArtifactViewer } from './ArtifactViewer';
+import { ArtifactEditor } from './ArtifactEditor';
+import { ArtifactReviewPrompt } from './ArtifactReviewPrompt';
+import { ArtifactBreadcrumb } from './ArtifactBreadcrumb';
+import { CheckpointHistory } from './CheckpointHistory';
 import { useToast } from '../../hooks/use-toast';
 import {
   useSessionStore,
   type Methodology
 } from '../../stores/planning/sessionStore';
+import { useArtifactStore } from '../../stores/planning/artifactStore';
 import { useProjectStore } from '../../stores/project-store';
+import { cn } from '../../lib/utils';
 
 interface PlanningViewProps {
   projectId: string;
@@ -40,11 +48,21 @@ export function PlanningView({ projectId }: PlanningViewProps) {
 
   // Local state
   const [showMethodologySelector, setShowMethodologySelector] = useState(false);
+  const [showArtifactPanel, setShowArtifactPanel] = useState(true);
 
-  // Load session on mount
+  // Artifact store
+  const selectedArtifact = useArtifactStore((state) => state.selectedArtifact);
+  const isEditing = useArtifactStore((state) => state.isEditing);
+  const setEditing = useArtifactStore((state) => state.setEditing);
+  const clearSelection = useArtifactStore((state) => state.clearSelection);
+  const loadArtifacts = useArtifactStore((state) => state.loadArtifacts);
+  const artifacts = useArtifactStore((state) => state.artifacts);
+
+  // Load session and artifacts on mount
   useEffect(() => {
     loadSession(projectId);
-  }, [projectId, loadSession]);
+    loadArtifacts(projectId);
+  }, [projectId, loadSession, loadArtifacts]);
 
   // Start/stop auto-save when session changes (Story 1.3)
   useEffect(() => {
@@ -129,6 +147,18 @@ export function PlanningView({ projectId }: PlanningViewProps) {
     );
   }
 
+  // Find artifact in review for review prompt
+  const artifactInReview = artifacts.find(a => a.status === 'in_review');
+
+  // Handle revision request from review prompt
+  const handleRevisionRequested = (feedback: string) => {
+    // Send revision request as a chat message
+    if (session) {
+      const revisionMessage = `Please revise the ${artifactInReview?.type} artifact with the following feedback:\n\n${feedback}`;
+      window.electronAPI.sendPlanningMessage(projectId, session.id, revisionMessage);
+    }
+  };
+
   // Active session view with chat interface
   if (session) {
     return (
@@ -137,6 +167,19 @@ export function PlanningView({ projectId }: PlanningViewProps) {
         <div className="border-b px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              {/* Toggle artifact panel button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowArtifactPanel(!showArtifactPanel)}
+                title={showArtifactPanel ? 'Hide artifacts' : 'Show artifacts'}
+              >
+                {showArtifactPanel ? (
+                  <PanelLeftClose className="h-5 w-5" />
+                ) : (
+                  <PanelLeft className="h-5 w-5" />
+                )}
+              </Button>
               <ClipboardList className="h-6 w-6 text-primary" />
               <div>
                 <h1 className="text-lg font-semibold">{t('planning:title')}</h1>
@@ -168,9 +211,80 @@ export function PlanningView({ projectId }: PlanningViewProps) {
           </div>
         </div>
 
-        {/* Chat Interface */}
-        <div className="flex-1 overflow-hidden">
-          <PlanningChat projectId={projectId} />
+        {/* Main content area with artifact panel */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Artifact Panel (collapsible) */}
+          <div
+            className={cn(
+              'border-r bg-card transition-all duration-300 overflow-hidden',
+              showArtifactPanel ? 'w-64' : 'w-0'
+            )}
+          >
+            {showArtifactPanel && (
+              <div className="h-full flex flex-col">
+                <div className="flex-1 overflow-auto">
+                  <ArtifactPanel projectId={projectId} />
+                </div>
+                {/* Checkpoint History (Story 2.6) */}
+                <div className="border-t p-2">
+                  <CheckpointHistory projectId={projectId} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Main content (chat or artifact viewer) */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Review prompt if artifact in review */}
+            {artifactInReview && (
+              <div className="p-4 border-b">
+                <ArtifactReviewPrompt
+                  artifact={artifactInReview}
+                  projectId={projectId}
+                  onApproved={() => loadArtifacts(projectId)}
+                  onRevisionRequested={handleRevisionRequested}
+                />
+              </div>
+            )}
+
+            {/* Show artifact viewer/editor or chat */}
+            {selectedArtifact ? (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Breadcrumb navigation */}
+                <div className="px-4 py-2 border-b bg-muted/30">
+                  <ArtifactBreadcrumb
+                    artifact={selectedArtifact}
+                    projectId={projectId}
+                    onHomeClick={clearSelection}
+                  />
+                </div>
+
+                {/* Artifact viewer or editor */}
+                {isEditing ? (
+                  <ArtifactEditor
+                    artifact={selectedArtifact}
+                    projectId={projectId}
+                    onCancel={() => setEditing(false)}
+                    onSaved={() => {
+                      setEditing(false);
+                      loadArtifacts(projectId);
+                    }}
+                  />
+                ) : (
+                  <ArtifactViewer
+                    artifact={selectedArtifact}
+                    projectId={projectId}
+                    onEdit={() => setEditing(true)}
+                  />
+                )}
+              </div>
+            ) : (
+              /* Chat Interface */
+              <div className="flex-1 overflow-hidden">
+                <PlanningChat projectId={projectId} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

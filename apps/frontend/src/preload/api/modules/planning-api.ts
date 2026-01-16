@@ -4,6 +4,12 @@ import type {
   PlanningSessionSummary,
   Methodology,
   PlanningStreamChunk,
+  WorkflowStep,
+  ArtifactSummary,
+  PlanningArtifact,
+  ArtifactType,
+  CheckpointResult,
+  CheckpointEntry,
   IPCResult
 } from '../../../shared/types';
 import { invokeIpc, createIpcListener, sendIpc, type IpcListenerCleanup } from './ipc-utils';
@@ -24,6 +30,24 @@ export interface PlanningAPI {
 
   // Session management (Story 1.3)
   listPlanningSessions: () => Promise<IPCResult<PlanningSessionSummary[]>>;
+
+  // Workflow operations (Story 2.1)
+  startPlanningWorkflow: (projectId: string, workflowId: WorkflowStep) => Promise<IPCResult>;
+  advancePlanningWorkflow: (projectId: string) => Promise<IPCResult<{ nextWorkflow: WorkflowStep | null }>>;
+  getPlanningWorkflowStatus: (projectId: string) => Promise<IPCResult<{ status: string; currentWorkflow: WorkflowStep | null }>>;
+
+  // Artifact operations (Story 2.2, 2.3, 2.4)
+  listPlanningArtifacts: (projectId: string) => Promise<IPCResult<ArtifactSummary[]>>;
+  loadPlanningArtifact: (projectId: string, artifactId: string) => Promise<IPCResult<PlanningArtifact>>;
+  savePlanningArtifact: (projectId: string, type: ArtifactType, content: string, title: string) => Promise<IPCResult<PlanningArtifact>>;
+  updatePlanningArtifact: (projectId: string, artifactId: string, content: string) => Promise<IPCResult<PlanningArtifact>>;
+  approvePlanningArtifact: (projectId: string, artifactId: string) => Promise<IPCResult>;
+  rejectPlanningArtifact: (projectId: string, artifactId: string) => Promise<IPCResult>;
+
+  // Git checkpoint operations (Story 2.6)
+  createPlanningCheckpoint: (projectId: string) => Promise<IPCResult<CheckpointResult>>;
+  listPlanningCheckpoints: (projectId: string) => Promise<IPCResult<CheckpointEntry[]>>;
+  viewArtifactAtCheckpoint: (projectId: string, commitHash: string, artifactPath: string) => Promise<IPCResult<string>>;
 }
 
 /**
@@ -52,5 +76,44 @@ export const createPlanningAPI = (): PlanningAPI => ({
 
   // Session management (Story 1.3)
   listPlanningSessions: (): Promise<IPCResult<PlanningSessionSummary[]>> =>
-    invokeIpc(IPC_CHANNELS.PLANNING_SESSIONS_LIST)
+    invokeIpc(IPC_CHANNELS.PLANNING_SESSIONS_LIST),
+
+  // Workflow operations (Story 2.1)
+  startPlanningWorkflow: (projectId: string, workflowId: WorkflowStep): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_WORKFLOW_START, projectId, workflowId),
+
+  advancePlanningWorkflow: (projectId: string): Promise<IPCResult<{ nextWorkflow: WorkflowStep | null }>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_WORKFLOW_ADVANCE, projectId),
+
+  getPlanningWorkflowStatus: (projectId: string): Promise<IPCResult<{ status: string; currentWorkflow: WorkflowStep | null }>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_WORKFLOW_STATUS, projectId),
+
+  // Artifact operations (Story 2.2, 2.3, 2.4)
+  listPlanningArtifacts: (projectId: string): Promise<IPCResult<ArtifactSummary[]>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_ARTIFACT_LIST, projectId),
+
+  loadPlanningArtifact: (projectId: string, artifactId: string): Promise<IPCResult<PlanningArtifact>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_ARTIFACT_LOAD, projectId, artifactId),
+
+  savePlanningArtifact: (projectId: string, type: ArtifactType, content: string, title: string): Promise<IPCResult<PlanningArtifact>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_ARTIFACT_SAVE, projectId, type, content, title),
+
+  updatePlanningArtifact: (projectId: string, artifactId: string, content: string): Promise<IPCResult<PlanningArtifact>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_ARTIFACT_UPDATE, projectId, artifactId, content),
+
+  approvePlanningArtifact: (projectId: string, artifactId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_ARTIFACT_APPROVE, projectId, artifactId),
+
+  rejectPlanningArtifact: (projectId: string, artifactId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_ARTIFACT_REJECT, projectId, artifactId),
+
+  // Git checkpoint operations (Story 2.6)
+  createPlanningCheckpoint: (projectId: string): Promise<IPCResult<CheckpointResult>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_GIT_CHECKPOINT, projectId),
+
+  listPlanningCheckpoints: (projectId: string): Promise<IPCResult<CheckpointEntry[]>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_GIT_HISTORY, projectId),
+
+  viewArtifactAtCheckpoint: (projectId: string, commitHash: string, artifactPath: string): Promise<IPCResult<string>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_GIT_VIEW, projectId, commitHash, artifactPath)
 });

@@ -73,5 +73,46 @@
       "needPRD": "I need to create a PRD",
       "planArchitecture": "Let's plan the architecture"
     }
+  },
+  "artifacts": {
+    "title": "Artifacts",
+    "empty": "No artifacts yet",
+    "emptyDescription": "Artifacts will appear here as you progress through the planning workflow.",
+    "breadcrumb": "Artifact navigation",
+    "allArtifacts": "All Artifacts",
+    "status": {
+      "draft": "Draft",
+      "in_review": "In Review",
+      "approved": "Approved"
+    },
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "approvedAt": "Approved",
+    "editing": "Editing",
+    "unsavedChanges": "Unsaved changes",
+    "editorPlaceholder": "Enter artifact content in Markdown format...",
+    "discardTitle": "Discard Changes?",
+    "discardDescription": "You have unsaved changes. Are you sure you want to discard them?",
+    "discard": "Discard",
+    "errors": {
+      "saveFailed": "Failed to save artifact"
+    }
+  },
+  "review": {
+    "title": "Review Required",
+    "description": "\"{{title}}\" is ready for your review. Please approve, request revisions, or reject.",
+    "approve": "Approve",
+    "requestRevision": "Request Revision",
+    "reject": "Reject",
+    "revisionTitle": "Request Revision",
+    "revisionDescription": "Describe what changes you'd like to see in this artifact.",
+    "revisionPlaceholder": "Enter your feedback and revision requests...",
+    "submitRevision": "Submit Revision Request"
+  },
+  "checkpoints": {
+    "title": "Git Checkpoints",
+    "create": "Create Checkpoint",
+    "empty": "No checkpoints yet",
+    "latest": "Latest"
   }
 }

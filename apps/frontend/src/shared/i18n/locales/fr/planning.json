@@ -73,5 +73,46 @@
       "needPRD": "J'ai besoin de créer un PRD",
       "planArchitecture": "Planifions l'architecture"
     }
+  },
+  "artifacts": {
+    "title": "Artefacts",
+    "empty": "Aucun artefact",
+    "emptyDescription": "Les artefacts apparaîtront ici au fur et à mesure de votre progression dans le workflow de planification.",
+    "breadcrumb": "Navigation des artefacts",
+    "allArtifacts": "Tous les artefacts",
+    "status": {
+      "draft": "Brouillon",
+      "in_review": "En révision",
+      "approved": "Approuvé"
+    },
+    "createdAt": "Créé",
+    "updatedAt": "Mis à jour",
+    "approvedAt": "Approuvé",
+    "editing": "Modification",
+    "unsavedChanges": "Modifications non enregistrées",
+    "editorPlaceholder": "Entrez le contenu de l'artefact au format Markdown...",
+    "discardTitle": "Abandonner les modifications ?",
+    "discardDescription": "Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir les abandonner ?",
+    "discard": "Abandonner",
+    "errors": {
+      "saveFailed": "Échec de l'enregistrement de l'artefact"
+    }
+  },
+  "review": {
+    "title": "Révision requise",
+    "description": "\"{{title}}\" est prêt pour votre révision. Veuillez approuver, demander des révisions ou rejeter.",
+    "approve": "Approuver",
+    "requestRevision": "Demander une révision",
+    "reject": "Rejeter",
+    "revisionTitle": "Demander une révision",
+    "revisionDescription": "Décrivez les modifications que vous souhaitez voir dans cet artefact.",
+    "revisionPlaceholder": "Entrez vos commentaires et demandes de révision...",
+    "submitRevision": "Soumettre la demande de révision"
+  },
+  "checkpoints": {
+    "title": "Points de contrôle Git",
+    "create": "Créer un point de contrôle",
+    "empty": "Aucun point de contrôle",
+    "latest": "Dernier"
   }
 }

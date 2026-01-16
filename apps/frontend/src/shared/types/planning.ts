@@ -93,3 +93,78 @@ export interface PlanningSessionSummary {
   currentWorkflow: WorkflowStep | null;
   messageCount: number;
 }
+
+/**
+ * Artifact status for review workflow (Story 2.2, 2.3)
+ */
+export type ArtifactStatus = 'draft' | 'in_review' | 'approved';
+
+/**
+ * Artifact type mapping to workflow steps
+ */
+export type ArtifactType = 'product-brief' | 'prd' | 'architecture' | 'epics' | 'story';
+
+/**
+ * Artifact metadata stored in YAML frontmatter (Story 2.2)
+ */
+export interface ArtifactMetadata {
+  id: string;
+  title: string;
+  type: ArtifactType;
+  status: ArtifactStatus;
+  createdAt: string;
+  updatedAt: string;
+  workflowStep: WorkflowStep;
+  author: string;
+  approvedAt?: string;
+}
+
+/**
+ * Full artifact with content (Story 2.2)
+ */
+export interface PlanningArtifact {
+  metadata: ArtifactMetadata;
+  content: string;
+  filePath: string;
+}
+
+/**
+ * Artifact summary for listing (Story 2.4)
+ */
+export interface ArtifactSummary {
+  id: string;
+  title: string;
+  type: ArtifactType;
+  status: ArtifactStatus;
+  updatedAt: string;
+  filePath: string;
+}
+
+/**
+ * Review state for artifact approval flow (Story 2.3)
+ */
+export type ReviewState = 'none' | 'pending' | 'revising';
+
+/**
+ * Workflow execution status (Story 2.1)
+ */
+export type WorkflowExecutionStatus = 'idle' | 'executing' | 'awaiting_review' | 'complete';
+
+/**
+ * Git checkpoint result (Story 2.6)
+ */
+export interface CheckpointResult {
+  success: boolean;
+  commitHash?: string;
+  errorMessage?: string;
+  timestamp: string;
+}
+
+/**
+ * Git checkpoint entry (Story 2.6)
+ */
+export interface CheckpointEntry {
+  hash: string;
+  message: string;
+  date: string;
+}

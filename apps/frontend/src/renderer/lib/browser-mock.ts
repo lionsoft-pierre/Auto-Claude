@@ -366,6 +366,57 @@ const browserMockAPI: ElectronAPI = {
   listPlanningSessions: async () => ({
     success: true,
     data: []
+  }),
+
+  // Planning Workflow Operations (Story 2.1)
+  startPlanningWorkflow: async () => ({
+    success: true
+  }),
+  advancePlanningWorkflow: async () => ({
+    success: true,
+    data: { nextWorkflow: null }
+  }),
+  getPlanningWorkflowStatus: async () => ({
+    success: true,
+    data: { status: 'idle', currentWorkflow: null }
+  }),
+
+  // Planning Artifact Operations (Story 2.2, 2.3, 2.4)
+  listPlanningArtifacts: async () => ({
+    success: true,
+    data: []
+  }),
+  loadPlanningArtifact: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  savePlanningArtifact: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  updatePlanningArtifact: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  approvePlanningArtifact: async () => ({
+    success: true
+  }),
+  rejectPlanningArtifact: async () => ({
+    success: true
+  }),
+
+  // Planning Git Checkpoint Operations (Story 2.6)
+  createPlanningCheckpoint: async () => ({
+    success: true,
+    data: { success: true, commitHash: 'mock-hash', timestamp: new Date().toISOString() }
+  }),
+  listPlanningCheckpoints: async () => ({
+    success: true,
+    data: []
+  }),
+  viewArtifactAtCheckpoint: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
   })
 };
 

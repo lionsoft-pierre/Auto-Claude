@@ -535,5 +535,23 @@ export const IPC_CHANNELS = {
   PLANNING_CHAT_ERROR: 'planning:chat:error',
 
   // Planning session management (Story 1.3)
-  PLANNING_SESSIONS_LIST: 'planning:sessions:list'
+  PLANNING_SESSIONS_LIST: 'planning:sessions:list',
+
+  // Planning workflow operations (Story 2.1)
+  PLANNING_WORKFLOW_START: 'planning:workflow:start',
+  PLANNING_WORKFLOW_ADVANCE: 'planning:workflow:advance',
+  PLANNING_WORKFLOW_STATUS: 'planning:workflow:status',
+
+  // Planning artifact operations (Story 2.2, 2.3, 2.4)
+  PLANNING_ARTIFACT_LIST: 'planning:artifact:list',
+  PLANNING_ARTIFACT_LOAD: 'planning:artifact:load',
+  PLANNING_ARTIFACT_SAVE: 'planning:artifact:save',
+  PLANNING_ARTIFACT_UPDATE: 'planning:artifact:update',
+  PLANNING_ARTIFACT_APPROVE: 'planning:artifact:approve',
+  PLANNING_ARTIFACT_REJECT: 'planning:artifact:reject',
+
+  // Planning git checkpoint operations (Story 2.6)
+  PLANNING_GIT_CHECKPOINT: 'planning:git:checkpoint',
+  PLANNING_GIT_HISTORY: 'planning:git:history',
+  PLANNING_GIT_VIEW: 'planning:git:view'
 } as const;

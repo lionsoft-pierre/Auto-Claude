@@ -9,7 +9,10 @@ import type {
   PlanningChatMessage,
   PlanningChatStatus,
   PlanningChatPhase,
-  PlanningStreamChunk
+  PlanningStreamChunk,
+  WorkflowExecutionStatus,
+  ReviewState,
+  CheckpointEntry
 } from '../../../shared/types/planning';
 
 // Re-export types for convenience
@@ -23,7 +26,10 @@ export type {
   PlanningChatMessage,
   PlanningChatStatus,
   PlanningChatPhase,
-  PlanningStreamChunk
+  PlanningStreamChunk,
+  WorkflowExecutionStatus,
+  ReviewState,
+  CheckpointEntry
 };
 
 // Auto-save interval in milliseconds (30 seconds per NFR8)
@@ -55,6 +61,17 @@ interface SessionState {
   chatStatus: PlanningChatStatus;
   streamingContent: string;
 
+  // Workflow execution state (Story 2.1)
+  workflowStatus: WorkflowExecutionStatus;
+
+  // Review state (Story 2.3)
+  reviewState: ReviewState;
+  pendingArtifact: { type: string; title: string } | null;
+
+  // Checkpoint state (Story 2.6)
+  lastCheckpointHash: string | null;
+  checkpoints: CheckpointEntry[];
+
   // Actions
   setSession: (session: PlanningSession | null) => void;
   setLoading: (loading: boolean) => void;
@@ -77,6 +94,20 @@ interface SessionState {
   appendStreamingContent: (content: string) => void;
   clearStreamingContent: () => void;
   finalizeStreamingMessage: () => void;
+
+  // Workflow actions (Story 2.1)
+  setWorkflowStatus: (status: WorkflowExecutionStatus) => void;
+  startWorkflow: (projectId: string, workflowId: WorkflowStep) => Promise<void>;
+
+  // Review actions (Story 2.3)
+  setReviewState: (state: ReviewState) => void;
+  setPendingArtifact: (artifact: { type: string; title: string } | null) => void;
+  requestRevision: () => void;
+
+  // Checkpoint actions (Story 2.6)
+  createCheckpoint: (projectId: string) => Promise<boolean>;
+  loadCheckpoints: (projectId: string) => Promise<void>;
+  recordCheckpoint: (hash: string) => void;
 }
 
 // Auto-save timer reference (module-level to persist across renders)
@@ -92,6 +123,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   isSaving: false,
   chatStatus: initialChatStatus,
   streamingContent: '',
+  workflowStatus: 'idle',
+  reviewState: 'none',
+  pendingArtifact: null,
+  lastCheckpointHash: null,
+  checkpoints: [],
 
   // Actions
   setSession: (session) => set({ session }),
@@ -300,7 +336,88 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           updatedAt: new Date().toISOString()
         }
       };
-    })
+    }),
+
+  // Workflow actions (Story 2.1)
+  setWorkflowStatus: (status: WorkflowExecutionStatus) => set({ workflowStatus: status }),
+
+  startWorkflow: async (projectId: string, workflowId: WorkflowStep) => {
+    set({ workflowStatus: 'executing' });
+
+    try {
+      const result = await window.electronAPI.startPlanningWorkflow(projectId, workflowId);
+
+      if (result.success) {
+        const { session } = get();
+        if (session) {
+          set({
+            session: {
+              ...session,
+              currentWorkflow: workflowId,
+              status: 'in_progress',
+              updatedAt: new Date().toISOString()
+            },
+            isDirty: true
+          });
+        }
+      } else {
+        set({ workflowStatus: 'idle', error: result.error });
+      }
+    } catch (err) {
+      set({
+        workflowStatus: 'idle',
+        error: err instanceof Error ? err.message : 'Failed to start workflow'
+      });
+    }
+  },
+
+  // Review actions (Story 2.3)
+  setReviewState: (state: ReviewState) => set({ reviewState: state }),
+
+  setPendingArtifact: (artifact: { type: string; title: string } | null) =>
+    set({ pendingArtifact: artifact }),
+
+  requestRevision: () => set({ reviewState: 'revising' }),
+
+  // Checkpoint actions (Story 2.6)
+  createCheckpoint: async (projectId: string): Promise<boolean> => {
+    try {
+      const result = await window.electronAPI.createPlanningCheckpoint(projectId);
+
+      if (result.success && result.data?.commitHash) {
+        get().recordCheckpoint(result.data.commitHash);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
+  loadCheckpoints: async (projectId: string) => {
+    try {
+      const result = await window.electronAPI.listPlanningCheckpoints(projectId);
+
+      if (result.success && result.data) {
+        set({ checkpoints: result.data });
+      }
+    } catch {
+      // Silently ignore checkpoint loading errors
+    }
+  },
+
+  recordCheckpoint: (hash: string) => {
+    const timestamp = new Date().toISOString();
+    set((state) => ({
+      lastCheckpointHash: hash,
+      checkpoints: [
+        { hash, message: `Planning checkpoint: ${timestamp}`, date: timestamp },
+        ...state.checkpoints
+      ]
+    }));
+    // Save session to persist checkpoint reference
+    get().saveSession();
+  }
 }));
 
 /**
