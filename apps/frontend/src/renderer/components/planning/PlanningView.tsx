@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { MethodologySelector } from './MethodologySelector';
 import { PlanningChat } from './PlanningChat';
+import { WorkflowProgress } from './WorkflowProgress';
 import { useToast } from '../../hooks/use-toast';
 import {
   useSessionStore,
@@ -159,6 +160,11 @@ export function PlanningView({ projectId }: PlanningViewProps) {
               )}
               {t('planning:saveSession')}
             </Button>
+          </div>
+
+          {/* Workflow Progress Indicator (Story 1.4) */}
+          <div className="mt-4">
+            <WorkflowProgress />
           </div>
         </div>
 

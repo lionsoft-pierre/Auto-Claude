@@ -26,6 +26,12 @@
     "epics": "Epics",
     "stories": "Stories"
   },
+  "progress": {
+    "ariaLabel": "Planning workflow progress",
+    "completed": "Completed",
+    "current": "In Progress",
+    "upcoming": "Upcoming"
+  },
   "status": {
     "idle": "Ready",
     "in_progress": "In Progress",

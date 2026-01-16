@@ -18,6 +18,11 @@ export type SessionStatus = 'idle' | 'in_progress' | 'completed';
 export type WorkflowStep = 'brief' | 'prd' | 'architecture' | 'epics' | 'stories';
 
 /**
+ * Workflow step visual status (Story 1.4)
+ */
+export type WorkflowStepStatus = 'completed' | 'current' | 'upcoming';
+
+/**
  * Chat message role
  */
 export type ChatMessageRole = 'user' | 'assistant';
