@@ -377,6 +377,25 @@ export function navigateToArtifact(artifactPath: string, section?: string) {
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+N/A - Implementation proceeded without errors
+
 ### Completion Notes List
+- Created SprintFilter dropdown component with sprint color indicators
+- Created SprintBadge component for showing sprint assignment on task cards
+- Filter uses Select UI component with "All Sprints" default option
+- Sprint colors are pulled from sprintStore
+- Added i18n translations for filter labels (en/tasks.json and fr/tasks.json)
+- Badge shows sprint color dot and optionally sprint name
+- Implemented size variants ('sm' and 'md') for badge flexibility
+
 ### File List
+**New Files:**
+- `apps/frontend/src/renderer/components/tasks/SprintFilter.tsx` - Sprint filter dropdown
+- `apps/frontend/src/renderer/components/planning/SprintBadge.tsx` - Sprint assignment badge
+
+**Modified Files:**
+- `apps/frontend/src/shared/i18n/locales/en/tasks.json` - Added filter translations
+- `apps/frontend/src/shared/i18n/locales/fr/tasks.json` - Added French filter translations

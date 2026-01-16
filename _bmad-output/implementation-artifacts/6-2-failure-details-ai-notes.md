@@ -415,6 +415,30 @@ retryStory: async (storyId: string) => {
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+N/A - Implementation proceeded without errors
+
 ### Completion Notes List
+- Created FailureDetailsPanel slide-over component with Sheet UI
+- Implemented failure log parser utility to extract failure data from story markdown
+- Added multiple attempt selector for viewing different failure attempts
+- Added retry functionality with confirmation dialog
+- Added IPC handlers: `planning:failure:get` and `planning:story:retry`
+- Added API methods: `getFailureDetails` and `retryStory` in planning-api.ts
+- Added i18n translations for failure panel (en/planning.json and fr/planning.json)
+- Panel displays: error summary, AI analysis, suggested fixes, raw error, and artifacts
+- Integrated with StoryStatusList for "View Details" action on failed stories
+
 ### File List
+**New Files:**
+- `apps/frontend/src/renderer/components/planning/FailureDetailsPanel.tsx` - Slide-over panel for failure details
+- `apps/frontend/src/renderer/utils/failureLogParser.ts` - Utility for parsing failure logs from markdown
+
+**Modified Files:**
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added failure details and retry handlers
+- `apps/frontend/src/preload/api/modules/planning-api.ts` - Added API methods
+- `apps/frontend/src/shared/constants/ipc.ts` - Added IPC channel constants
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added failure translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added French failure translations

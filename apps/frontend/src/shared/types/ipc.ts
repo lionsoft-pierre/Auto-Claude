@@ -122,7 +122,9 @@ import type {
   Sprint,
   SprintAssignment,
   SprintQueue,
-  PriorityUpdate
+  PriorityUpdate,
+  SprintExecutionState,
+  SprintExecutionSummary
 } from './planning';
 import type {
   LinearTeam,
@@ -884,6 +886,40 @@ export interface ElectronAPI {
   startSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
   completeSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
   onSprintStatusChanged: (callback: (projectId: string, sprint: Sprint) => void) => () => void;
+
+  // Sprint execution operations (Story 5.1)
+  startSprintExecution: (projectId: string, sprintId: string) => Promise<IPCResult<{ started: boolean }>>;
+  stopSprintExecution: (projectId: string) => Promise<IPCResult>;
+  pauseSprintExecution: (projectId: string) => Promise<IPCResult>;
+  resumeSprintExecution: (projectId: string) => Promise<IPCResult>;
+  getSprintExecutionStatus: (projectId: string) => Promise<IPCResult<SprintExecutionState>>;
+
+  // Sprint execution events (Story 5.1, 5.2, 5.3, 5.4)
+  onSprintExecutionStarted: (callback: (projectId: string, data: { sprintId: string; totalStories: number }) => void) => () => void;
+  onSprintExecutionStoryStarted: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string }) => void) => () => void;
+  onSprintExecutionStoryCompleted: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string; duration: number }) => void) => () => void;
+  onSprintExecutionStoryFailed: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string; error: string }) => void) => () => void;
+  onSprintExecutionStorySkipped: (callback: (projectId: string, data: { sprintId: string; storyId: string; skipReason: string }) => void) => () => void;
+  onSprintExecutionRetrying: (callback: (projectId: string, data: { sprintId: string; storyId: string; attempt: number; error: string; delaySeconds: number }) => void) => () => void;
+  onSprintExecutionCompleted: (callback: (projectId: string, data: SprintExecutionSummary) => void) => () => void;
+  onSprintExecutionPaused: (callback: (projectId: string, data: { sprintId: string }) => void) => () => void;
+  onSprintExecutionResumed: (callback: (projectId: string, data: { sprintId: string }) => void) => () => void;
+  onSprintExecutionError: (callback: (projectId: string, data: { sprintId: string; error: string }) => void) => () => void;
+
+  // Sprint dashboard operations (Story 6.1, 6.2)
+  getFailureDetails: (projectId: string, storyId: string) => Promise<IPCResult<{
+    storyTitle: string;
+    failures: Array<{
+      attempt: number;
+      timestamp: string;
+      duration: number;
+      phase: string;
+      analysis: { summary: string; analysis: string; fixes: string };
+      rawError: string;
+      artifacts: string[];
+    }>;
+  }>>;
+  retryStory: (projectId: string, storyId: string) => Promise<IPCResult>;
 }
 
 declare global {

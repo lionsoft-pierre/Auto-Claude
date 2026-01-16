@@ -184,7 +184,104 @@
       "pending": "Pending",
       "inProgress": "In Progress",
       "completed": "Completed",
-      "failed": "Failed"
+      "failed": "Failed",
+      "skipped": "Skipped"
     }
+  },
+  "execution": {
+    "title": "Sprint Execution",
+    "startExecution": "Start Execution",
+    "stopExecution": "Stop Execution",
+    "pauseExecution": "Pause",
+    "resumeExecution": "Resume",
+    "confirmStart": "Start executing sprint \"{{name}}\"?",
+    "confirmStartDescription": "This will automatically execute {{count}} pending stories. The sprint will continue even if some stories fail.",
+    "confirmStop": "Stop sprint execution?",
+    "confirmStopDescription": "The current story will complete, then execution will stop. You can resume later.",
+    "executing": "Executing...",
+    "paused": "Paused",
+    "idle": "Ready to execute",
+    "completed": "Execution completed",
+    "progress": {
+      "title": "Execution Progress",
+      "currentStory": "Current Story",
+      "storiesCompleted": "{{completed}} of {{total}} stories completed",
+      "storiesFailed": "{{count}} failed",
+      "storiesSkipped": "{{count}} skipped",
+      "timeElapsed": "Time elapsed: {{time}}",
+      "retrying": "Retrying in {{seconds}}s (attempt {{attempt}} of {{max}})",
+      "waiting": "Waiting for next story..."
+    },
+    "events": {
+      "started": "Sprint execution started",
+      "storyStarted": "Starting: {{title}}",
+      "storyCompleted": "Completed: {{title}} ({{duration}}s)",
+      "storyFailed": "Failed: {{title}}",
+      "storySkipped": "Skipped: {{title}} - {{reason}}",
+      "retrying": "Retrying {{title}} (attempt {{attempt}})",
+      "paused": "Execution paused",
+      "resumed": "Execution resumed",
+      "completed": "Sprint execution completed",
+      "stopped": "Sprint execution stopped"
+    },
+    "summary": {
+      "title": "Execution Summary",
+      "totalDuration": "Total Duration",
+      "successRate": "Success Rate",
+      "storiesCompleted": "Stories Completed",
+      "storiesFailed": "Stories Failed",
+      "storiesSkipped": "Stories Skipped",
+      "viewFailures": "View Failures",
+      "close": "Close"
+    },
+    "failure": {
+      "title": "Failure Details",
+      "attempt": "Attempt {{number}}",
+      "phase": "Phase",
+      "duration": "Duration",
+      "errorSummary": "Error Summary",
+      "aiAnalysis": "AI Analysis",
+      "suggestedFixes": "Suggested Fixes",
+      "rawError": "Raw Error",
+      "artifacts": "Artifacts"
+    },
+    "errors": {
+      "alreadyRunning": "Sprint execution already running",
+      "noStoriesInSprint": "No pending stories in sprint",
+      "startFailed": "Failed to start sprint execution",
+      "stopFailed": "Failed to stop sprint execution"
+    }
+  },
+  "dashboard": {
+    "title": "Sprint Dashboard",
+    "notFound": "Sprint not found",
+    "started": "Started: {{date}}",
+    "completed": "Completed: {{date}}",
+    "progress": "{{attempted}} of {{total}} attempted",
+    "viewDetails": "View Details",
+    "duration": "{{minutes}}m {{seconds}}s",
+    "inProgress": "In Progress"
+  },
+  "failure": {
+    "viewStory": "View Full Story",
+    "editStory": "Edit Story",
+    "retry": "Retry Story",
+    "retryConfirm": "Reset this story to pending and re-queue for execution?",
+    "retrySuccess": "Story queued for retry"
+  },
+  "share": {
+    "title": "Share Planning Artifacts",
+    "selectArtifacts": "Select artifacts to share:",
+    "productbrief": "Product Brief",
+    "prd": "Product Requirements Document",
+    "architecture": "Architecture",
+    "epics": "Epics",
+    "stories": "Individual Stories",
+    "exportFormat": "Export Format:",
+    "formatMarkdown": "Markdown (.md) - Plain text, easy to share",
+    "formatHtml": "HTML (.html) - Styled, opens in browser",
+    "export": "Export and Download",
+    "preview": "Preview",
+    "feedbackNote": "Share these artifacts with stakeholders for feedback. Ask them to provide suggestions via email or your preferred communication tool."
   }
 }

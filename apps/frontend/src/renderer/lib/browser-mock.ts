@@ -524,7 +524,61 @@ const browserMockAPI: ElectronAPI = {
       completedAt: new Date().toISOString()
     }
   }),
-  onSprintStatusChanged: () => () => {}
+  onSprintStatusChanged: () => () => {},
+
+  // Sprint execution operations (Story 5.1)
+  startSprintExecution: async () => ({
+    success: true,
+    data: { started: true }
+  }),
+  stopSprintExecution: async () => ({
+    success: true
+  }),
+  pauseSprintExecution: async () => ({
+    success: true
+  }),
+  resumeSprintExecution: async () => ({
+    success: true
+  }),
+  getSprintExecutionStatus: async () => ({
+    success: true,
+    data: {
+      sprintId: '',
+      status: 'idle' as const,
+      storiesCompleted: 0,
+      storiesFailed: 0,
+      storiesSkipped: 0,
+      storiesTotal: 0
+    }
+  }),
+
+  // Sprint execution events (Story 5.1, 5.2, 5.3, 5.4)
+  onSprintExecutionStarted: () => () => {},
+  onSprintExecutionStoryStarted: () => () => {},
+  onSprintExecutionStoryCompleted: () => () => {},
+  onSprintExecutionStoryFailed: () => () => {},
+  onSprintExecutionStorySkipped: () => () => {},
+  onSprintExecutionRetrying: () => () => {},
+  onSprintExecutionCompleted: () => () => {},
+  onSprintExecutionPaused: () => () => {},
+  onSprintExecutionResumed: () => () => {},
+  onSprintExecutionError: () => () => {},
+
+  // Sprint dashboard operations (Story 6.1, 6.2)
+  getFailureDetails: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  retryStory: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+
+  // Git operations
+  initializeGit: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  })
 };
 
 /**

@@ -56,8 +56,8 @@ export function SprintManager({
   const storyTitles = useMemo(() => {
     const map = new Map<string, string>();
     tasks.forEach(task => {
-      if (task.storyId) {
-        map.set(task.storyId, task.title);
+      if (task.metadata?.storyId) {
+        map.set(task.metadata.storyId, task.title);
       }
     });
     return map;

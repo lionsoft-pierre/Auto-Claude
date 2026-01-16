@@ -317,5 +317,15 @@
       "native": "Native",
       "bmad": "BMAD"
     }
-  }
+  },
+  "filter": {
+    "selectSprint": "Filter by Sprint",
+    "allSprints": "All Sprints",
+    "clearFilter": "Clear Filter"
+  },
+  "storyContext": "Story Context",
+  "viewStory": "View Story",
+  "fromStory": "From Story",
+  "acceptanceCriteria": "Acceptance Criteria",
+  "contextLinks": "Related Documents"
 }

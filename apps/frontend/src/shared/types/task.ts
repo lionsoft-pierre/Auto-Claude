@@ -252,6 +252,12 @@ export interface TaskMetadata {
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
+
+  // Planning/Story tracking (Story 3.3)
+  storyId?: string;  // Reference to story if converted from planning
+  storyPath?: string;  // Path to story file
+  epicId?: string;  // Reference to epic this story belongs to
+  acceptanceCriteriaSummary?: string;  // Summary of acceptance criteria from story
 }
 
 // Structured error information for tasks with parse errors

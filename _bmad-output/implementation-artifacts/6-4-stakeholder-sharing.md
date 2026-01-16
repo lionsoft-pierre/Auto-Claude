@@ -462,6 +462,29 @@ Before export, verify removal of:
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+N/A - Implementation proceeded without errors
+
 ### Completion Notes List
+- Created ShareArtifactsDialog component with artifact selection checkboxes
+- Implemented content sanitizer to remove sensitive data before export
+- Created artifact exporter with Markdown and HTML format support
+- HTML export includes styled layout optimized for browser viewing
+- Markdown export generates clean, portable documentation
+- Table of contents generated automatically from selected artifacts
+- Content sanitization removes: absolute paths, frontmatter, dev records, and task IDs
+- Added validation warnings for content that may need manual review
+- Integrated with artifactStore for loading artifact content
+- Added i18n translations for share dialog (en/planning.json and fr/planning.json)
+
 ### File List
+**New Files:**
+- `apps/frontend/src/renderer/components/planning/ShareArtifactsDialog.tsx` - Share dialog with artifact selection
+- `apps/frontend/src/renderer/utils/artifactExporter.ts` - Export to Markdown/HTML utilities
+- `apps/frontend/src/renderer/utils/contentSanitizer.ts` - Content sanitization for security
+
+**Modified Files:**
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added share translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added French share translations

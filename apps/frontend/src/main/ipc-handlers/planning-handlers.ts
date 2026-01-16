@@ -2133,4 +2133,628 @@ so that **the system provides this functionality**.
       return { success: true, data: sprint };
     }
   );
+
+  // ============================================================================
+  // Sprint Execution Operations (Story 5.1, 5.2, 5.3, 5.4)
+  // ============================================================================
+
+  // Track running executions by project
+  const runningExecutions: Map<string, {
+    sprintId: string;
+    running: boolean;
+    paused: boolean;
+    stats: { completed: number; failed: number; skipped: number; total: number };
+  }> = new Map();
+
+  /**
+   * Send execution event to all renderer windows
+   */
+  function sendExecutionEvent(
+    projectId: string,
+    channel: string,
+    data: Record<string, unknown>
+  ): void {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(channel, projectId, data);
+    }
+  }
+
+  /**
+   * Start sprint execution (Story 5.1)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_EXECUTION_START,
+    async (_event, projectId: string, sprintId: string): Promise<IPCResult<{ started: boolean }>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      // Check if already running
+      const existing = runningExecutions.get(projectId);
+      if (existing?.running) {
+        return { success: false, error: 'Sprint execution already running' };
+      }
+
+      // Load queue and verify sprint
+      const queue = loadSprintQueue(project.path);
+      const sprint = queue.sprints.find(s => s.id === sprintId);
+      if (!sprint) {
+        return { success: false, error: 'Sprint not found' };
+      }
+
+      // Get pending assignments
+      const assignments = queue.assignments.filter(
+        a => a.sprintId === sprintId && a.status === 'pending'
+      );
+
+      if (assignments.length === 0) {
+        return { success: false, error: 'No pending stories in sprint' };
+      }
+
+      // Initialize execution state
+      runningExecutions.set(projectId, {
+        sprintId,
+        running: true,
+        paused: false,
+        stats: { completed: 0, failed: 0, skipped: 0, total: assignments.length }
+      });
+
+      // Update sprint status
+      sprint.status = 'in_progress';
+      sprint.startedAt = new Date().toISOString();
+      saveSprintQueue(project.path, queue);
+
+      // Notify UI
+      sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_STARTED, {
+        sprintId,
+        totalStories: assignments.length
+      });
+
+      // Start async execution (non-blocking)
+      executeSprintAsync(projectId, project.path, sprintId, assignments).catch(err => {
+        console.error('Sprint execution error:', err);
+        sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_ERROR, {
+          sprintId,
+          error: err.message
+        });
+      });
+
+      return { success: true, data: { started: true } };
+    }
+  );
+
+  /**
+   * Async sprint execution loop (Story 5.1, 5.4)
+   */
+  async function executeSprintAsync(
+    projectId: string,
+    projectPath: string,
+    sprintId: string,
+    assignments: SprintAssignment[]
+  ): Promise<void> {
+    const execution = runningExecutions.get(projectId);
+    if (!execution) return;
+
+    // Sort by priority
+    const sortedAssignments = [...assignments].sort((a, b) => a.priority - b.priority);
+
+    for (const assignment of sortedAssignments) {
+      // Check if stopped or paused
+      const state = runningExecutions.get(projectId);
+      if (!state?.running) break;
+
+      while (state?.paused) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const checkState = runningExecutions.get(projectId);
+        if (!checkState?.running) return;
+      }
+
+      const storyId = assignment.storyId;
+      const taskId = assignment.taskId;
+
+      // Load story info for title
+      const storyTitle = await getStoryTitle(projectPath, storyId);
+
+      // Notify story started
+      sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_STORY_STARTED, {
+        sprintId,
+        storyId,
+        taskId,
+        storyTitle,
+        priority: assignment.priority
+      });
+
+      // Update assignment status to in_progress
+      updateAssignmentStatus(projectPath, taskId, 'in_progress');
+
+      const startTime = Date.now();
+
+      try {
+        // Execute the story (placeholder - actual execution would call backend)
+        await executeStoryWithRetry(projectId, projectPath, assignment, storyTitle);
+
+        const duration = (Date.now() - startTime) / 1000;
+
+        // Success
+        updateAssignmentStatus(projectPath, taskId, 'completed');
+        execution.stats.completed++;
+
+        sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_STORY_COMPLETED, {
+          sprintId,
+          storyId,
+          taskId,
+          storyTitle,
+          duration,
+          status: 'completed'
+        });
+
+      } catch (error) {
+        const duration = (Date.now() - startTime) / 1000;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+        // Check if this is a skip due to dependency
+        if (errorMessage.startsWith('SKIP:')) {
+          updateAssignmentStatus(projectPath, taskId, 'skipped', errorMessage.replace('SKIP:', ''));
+          execution.stats.skipped++;
+
+          sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_STORY_SKIPPED, {
+            sprintId,
+            storyId,
+            taskId,
+            storyTitle,
+            skipReason: errorMessage.replace('SKIP:', '')
+          });
+        } else {
+          // Real failure
+          updateAssignmentStatus(projectPath, taskId, 'failed', errorMessage);
+          execution.stats.failed++;
+
+          sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_STORY_FAILED, {
+            sprintId,
+            storyId,
+            taskId,
+            storyTitle,
+            duration,
+            error: errorMessage
+          });
+        }
+
+        // Continue to next story - never stop the sprint (NFR7)
+      }
+    }
+
+    // Sprint completed
+    const finalState = runningExecutions.get(projectId);
+    if (finalState?.running) {
+      // Mark sprint as completed
+      const queue = loadSprintQueue(projectPath);
+      const sprint = queue.sprints.find(s => s.id === sprintId);
+      if (sprint) {
+        sprint.status = 'completed';
+        sprint.completedAt = new Date().toISOString();
+        saveSprintQueue(projectPath, queue);
+      }
+
+      sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_COMPLETED, {
+        sprintId,
+        ...finalState.stats
+      });
+
+      runningExecutions.delete(projectId);
+    }
+  }
+
+  /**
+   * Execute a story with retry logic (Story 5.4)
+   */
+  async function executeStoryWithRetry(
+    projectId: string,
+    projectPath: string,
+    assignment: SprintAssignment,
+    storyTitle: string,
+    maxRetries: number = 3
+  ): Promise<void> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Placeholder for actual story execution
+        // In production, this would call the Python backend sprint_executor
+        await simulateStoryExecution(projectPath, assignment.storyId);
+        return; // Success
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Check if this is a transient error worth retrying
+        if (isTransientError(lastError) && attempt < maxRetries) {
+          const delay = calculateRetryDelay(attempt);
+
+          sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_RETRYING, {
+            sprintId: assignment.sprintId,
+            storyId: assignment.storyId,
+            storyTitle,
+            attempt: attempt + 1,
+            maxAttempts: maxRetries + 1,
+            error: lastError.message,
+            delaySeconds: delay / 1000
+          });
+
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          break; // Permanent error or max retries exceeded
+        }
+      }
+    }
+
+    throw lastError || new Error('Unknown error');
+  }
+
+  /**
+   * Simulate story execution (placeholder)
+   * In production, this calls the Python backend
+   */
+  async function simulateStoryExecution(projectPath: string, storyId: string): Promise<void> {
+    // Simulate execution time (2-10 seconds)
+    const duration = 2000 + Math.random() * 8000;
+    await new Promise(resolve => setTimeout(resolve, duration));
+
+    // Simulate occasional failures (10% chance for demo)
+    if (Math.random() < 0.1) {
+      throw new Error('Simulated QA validation failure');
+    }
+  }
+
+  /**
+   * Check if an error is transient (should retry)
+   */
+  function isTransientError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+    const transientPatterns = [
+      'timeout', 'connection', 'network', 'rate limit',
+      '502', '503', '504', 'temporary', 'unavailable'
+    ];
+    return transientPatterns.some(p => message.includes(p));
+  }
+
+  /**
+   * Calculate retry delay with exponential backoff
+   */
+  function calculateRetryDelay(attempt: number): number {
+    const baseDelay = 2000; // 2 seconds
+    const maxDelay = 60000; // 60 seconds
+    const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+    // Add jitter
+    return delay * (0.5 + Math.random());
+  }
+
+  /**
+   * Get story title from file
+   */
+  async function getStoryTitle(projectPath: string, storyId: string): Promise<string> {
+    const storiesDir = path.join(projectPath, '.auto-claude', 'planning', 'stories');
+    if (!existsSync(storiesDir)) return storyId;
+
+    const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+    for (const filename of storyFiles) {
+      const filePath = path.join(storiesDir, filename);
+      const content = readFileSync(filePath, 'utf-8');
+      if (content.includes(`id: ${storyId}`) || content.includes(`id: '${storyId}'`)) {
+        const titleMatch = content.match(/title:\s*([^\n]+)/);
+        if (titleMatch) {
+          return titleMatch[1].trim().replace(/^['"]|['"]$/g, '');
+        }
+      }
+    }
+    return storyId;
+  }
+
+  /**
+   * Update assignment status in queue
+   */
+  function updateAssignmentStatus(
+    projectPath: string,
+    taskId: string,
+    status: string,
+    reason?: string
+  ): void {
+    const queue = loadSprintQueue(projectPath);
+    const assignment = queue.assignments.find(a => a.taskId === taskId);
+    if (assignment) {
+      const mutableAssignment = assignment as unknown as Record<string, unknown>;
+      mutableAssignment.status = status;
+      const now = new Date().toISOString();
+      if (status === 'completed') {
+        mutableAssignment.completedAt = now;
+      } else if (status === 'failed') {
+        mutableAssignment.failedAt = now;
+        if (reason) mutableAssignment.failureReason = reason;
+      } else if (status === 'skipped') {
+        mutableAssignment.skippedAt = now;
+        if (reason) mutableAssignment.skipReason = reason;
+      } else if (status === 'in_progress') {
+        mutableAssignment.startedAt = now;
+      }
+      saveSprintQueue(projectPath, queue);
+    }
+  }
+
+  /**
+   * Stop sprint execution (Story 5.1)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_EXECUTION_STOP,
+    async (_event, projectId: string): Promise<IPCResult> => {
+      const execution = runningExecutions.get(projectId);
+      if (!execution) {
+        return { success: false, error: 'No execution running' };
+      }
+
+      execution.running = false;
+      runningExecutions.delete(projectId);
+
+      sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_COMPLETED, {
+        sprintId: execution.sprintId,
+        ...execution.stats,
+        stopped: true
+      });
+
+      return { success: true };
+    }
+  );
+
+  /**
+   * Pause sprint execution (Story 5.1)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_EXECUTION_PAUSE,
+    async (_event, projectId: string): Promise<IPCResult> => {
+      const execution = runningExecutions.get(projectId);
+      if (!execution?.running) {
+        return { success: false, error: 'No execution running' };
+      }
+
+      execution.paused = true;
+
+      sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_PAUSED, {
+        sprintId: execution.sprintId
+      });
+
+      return { success: true };
+    }
+  );
+
+  /**
+   * Resume sprint execution (Story 5.1)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_EXECUTION_RESUME,
+    async (_event, projectId: string): Promise<IPCResult> => {
+      const execution = runningExecutions.get(projectId);
+      if (!execution?.running) {
+        return { success: false, error: 'No execution running' };
+      }
+
+      execution.paused = false;
+
+      sendExecutionEvent(projectId, IPC_CHANNELS.PLANNING_EXECUTION_RESUMED, {
+        sprintId: execution.sprintId
+      });
+
+      return { success: true };
+    }
+  );
+
+  /**
+   * Get execution status (Story 5.1)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_EXECUTION_STATUS,
+    async (_event, projectId: string): Promise<IPCResult<{
+      running: boolean;
+      paused: boolean;
+      sprintId?: string;
+      stats?: { completed: number; failed: number; skipped: number; total: number };
+    }>> => {
+      const execution = runningExecutions.get(projectId);
+      if (!execution) {
+        return {
+          success: true,
+          data: { running: false, paused: false }
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          running: execution.running,
+          paused: execution.paused,
+          sprintId: execution.sprintId,
+          stats: execution.stats
+        }
+      };
+    }
+  );
+
+  // ============================================================================
+  // Sprint Dashboard Operations (Story 6.1, 6.2)
+  // ============================================================================
+
+  /**
+   * Get failure details for a story (Story 6.2)
+   * Parses the failure log from the story markdown file
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_FAILURE_DETAILS_GET,
+    async (_event, projectId: string, storyId: string): Promise<IPCResult<{
+      storyTitle: string;
+      failures: Array<{
+        attempt: number;
+        timestamp: string;
+        duration: number;
+        phase: string;
+        analysis: { summary: string; analysis: string; fixes: string };
+        rawError: string;
+        artifacts: string[];
+      }>;
+    }>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const storiesDir = path.join(project.path, '.auto-claude', 'planning', 'stories');
+      if (!existsSync(storiesDir)) {
+        return { success: false, error: 'Stories directory not found' };
+      }
+
+      // Find the story file
+      const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+      let storyContent = '';
+      let storyTitle = storyId;
+
+      for (const filename of storyFiles) {
+        const filePath = path.join(storiesDir, filename);
+        const content = readFileSync(filePath, 'utf-8');
+        if (content.includes(`id: ${storyId}`) || content.includes(`id: '${storyId}'`) || content.includes(`id: "${storyId}"`)) {
+          storyContent = content;
+          const titleMatch = content.match(/title:\s*([^\n]+)/);
+          if (titleMatch) {
+            storyTitle = titleMatch[1].trim().replace(/^['"]|['"]$/g, '');
+          }
+          break;
+        }
+      }
+
+      if (!storyContent) {
+        return { success: false, error: 'Story not found' };
+      }
+
+      // Parse failure log section from the story markdown
+      const failures = parseFailureLog(storyContent);
+
+      return {
+        success: true,
+        data: {
+          storyTitle,
+          failures
+        }
+      };
+    }
+  );
+
+  /**
+   * Retry a failed story (Story 6.2)
+   * Resets the story status to pending and re-queues for execution
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORY_RETRY,
+    async (_event, projectId: string, storyId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const queue = loadSprintQueue(project.path);
+
+      // Find the assignment for this story
+      const assignment = queue.assignments.find(a => a.storyId === storyId);
+      if (!assignment) {
+        return { success: false, error: 'Story not found in sprint queue' };
+      }
+
+      // Reset status to pending
+      const mutableAssignment = assignment as unknown as Record<string, unknown>;
+      mutableAssignment.status = 'pending';
+      delete mutableAssignment.failedAt;
+      delete mutableAssignment.failureReason;
+
+      saveSprintQueue(project.path, queue);
+
+      return { success: true };
+    }
+  );
+}
+
+/**
+ * Parse failure log from story markdown content (Story 6.2)
+ */
+function parseFailureLog(content: string): Array<{
+  attempt: number;
+  timestamp: string;
+  duration: number;
+  phase: string;
+  analysis: { summary: string; analysis: string; fixes: string };
+  rawError: string;
+  artifacts: string[];
+}> {
+  const failures: Array<{
+    attempt: number;
+    timestamp: string;
+    duration: number;
+    phase: string;
+    analysis: { summary: string; analysis: string; fixes: string };
+    rawError: string;
+    artifacts: string[];
+  }> = [];
+
+  // Look for failure log section
+  const failureLogMatch = content.match(/## Failure Log\s*\n([\s\S]*?)(?=\n## |\n---|\Z)/);
+  if (!failureLogMatch) {
+    return failures;
+  }
+
+  const failureLogContent = failureLogMatch[1];
+
+  // Parse each attempt
+  const attemptRegex = /### Attempt (\d+)\s*\n([\s\S]*?)(?=### Attempt |\Z)/g;
+  let attemptMatch;
+
+  while ((attemptMatch = attemptRegex.exec(failureLogContent)) !== null) {
+    const attemptNumber = parseInt(attemptMatch[1], 10);
+    const attemptContent = attemptMatch[2];
+
+    // Parse attempt metadata
+    const timestampMatch = attemptContent.match(/\*\*Timestamp\*\*:\s*(.+)/);
+    const durationMatch = attemptContent.match(/\*\*Duration\*\*:\s*(\d+)/);
+    const phaseMatch = attemptContent.match(/\*\*Phase\*\*:\s*(.+)/);
+
+    // Parse analysis sections
+    const summaryMatch = attemptContent.match(/#### Summary\s*\n([\s\S]*?)(?=####|$)/);
+    const analysisMatch = attemptContent.match(/#### Analysis\s*\n([\s\S]*?)(?=####|$)/);
+    const fixesMatch = attemptContent.match(/#### Suggested Fixes\s*\n([\s\S]*?)(?=####|$)/);
+    const rawErrorMatch = attemptContent.match(/#### Raw Error\s*\n```[\s\S]*?\n([\s\S]*?)```/);
+
+    // Parse artifacts
+    const artifacts: string[] = [];
+    const artifactsMatch = attemptContent.match(/#### Artifacts\s*\n([\s\S]*?)(?=####|$)/);
+    if (artifactsMatch) {
+      const artifactLines = artifactsMatch[1].match(/- (.+)/g);
+      if (artifactLines) {
+        for (const line of artifactLines) {
+          const pathMatch = line.match(/- (.+)/);
+          if (pathMatch) {
+            artifacts.push(pathMatch[1].trim());
+          }
+        }
+      }
+    }
+
+    failures.push({
+      attempt: attemptNumber,
+      timestamp: timestampMatch ? timestampMatch[1].trim() : new Date().toISOString(),
+      duration: durationMatch ? parseInt(durationMatch[1], 10) : 0,
+      phase: phaseMatch ? phaseMatch[1].trim() : 'unknown',
+      analysis: {
+        summary: summaryMatch ? summaryMatch[1].trim() : '',
+        analysis: analysisMatch ? analysisMatch[1].trim() : '',
+        fixes: fixesMatch ? fixesMatch[1].trim() : ''
+      },
+      rawError: rawErrorMatch ? rawErrorMatch[1].trim() : '',
+      artifacts
+    });
+  }
+
+  return failures;
 }

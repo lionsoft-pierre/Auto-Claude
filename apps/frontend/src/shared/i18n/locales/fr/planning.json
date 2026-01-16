@@ -184,7 +184,104 @@
       "pending": "En attente",
       "inProgress": "En cours",
       "completed": "Terminé",
-      "failed": "Échec"
+      "failed": "Échec",
+      "skipped": "Ignoré"
     }
+  },
+  "execution": {
+    "title": "Exécution du sprint",
+    "startExecution": "Démarrer l'exécution",
+    "stopExecution": "Arrêter l'exécution",
+    "pauseExecution": "Pause",
+    "resumeExecution": "Reprendre",
+    "confirmStart": "Démarrer l'exécution du sprint \"{{name}}\" ?",
+    "confirmStartDescription": "Cela exécutera automatiquement {{count}} stories en attente. Le sprint continuera même si certaines stories échouent.",
+    "confirmStop": "Arrêter l'exécution du sprint ?",
+    "confirmStopDescription": "La story en cours sera terminée, puis l'exécution s'arrêtera. Vous pourrez reprendre plus tard.",
+    "executing": "Exécution en cours...",
+    "paused": "En pause",
+    "idle": "Prêt à exécuter",
+    "completed": "Exécution terminée",
+    "progress": {
+      "title": "Progression de l'exécution",
+      "currentStory": "Story en cours",
+      "storiesCompleted": "{{completed}} sur {{total}} stories terminées",
+      "storiesFailed": "{{count}} échec(s)",
+      "storiesSkipped": "{{count}} ignorée(s)",
+      "timeElapsed": "Temps écoulé : {{time}}",
+      "retrying": "Nouvelle tentative dans {{seconds}}s (tentative {{attempt}} sur {{max}})",
+      "waiting": "En attente de la prochaine story..."
+    },
+    "events": {
+      "started": "Exécution du sprint démarrée",
+      "storyStarted": "Démarrage : {{title}}",
+      "storyCompleted": "Terminé : {{title}} ({{duration}}s)",
+      "storyFailed": "Échec : {{title}}",
+      "storySkipped": "Ignoré : {{title}} - {{reason}}",
+      "retrying": "Nouvelle tentative pour {{title}} (tentative {{attempt}})",
+      "paused": "Exécution en pause",
+      "resumed": "Exécution reprise",
+      "completed": "Exécution du sprint terminée",
+      "stopped": "Exécution du sprint arrêtée"
+    },
+    "summary": {
+      "title": "Résumé de l'exécution",
+      "totalDuration": "Durée totale",
+      "successRate": "Taux de réussite",
+      "storiesCompleted": "Stories terminées",
+      "storiesFailed": "Stories en échec",
+      "storiesSkipped": "Stories ignorées",
+      "viewFailures": "Voir les échecs",
+      "close": "Fermer"
+    },
+    "failure": {
+      "title": "Détails de l'échec",
+      "attempt": "Tentative {{number}}",
+      "phase": "Phase",
+      "duration": "Durée",
+      "errorSummary": "Résumé de l'erreur",
+      "aiAnalysis": "Analyse IA",
+      "suggestedFixes": "Corrections suggérées",
+      "rawError": "Erreur brute",
+      "artifacts": "Artefacts"
+    },
+    "errors": {
+      "alreadyRunning": "Une exécution de sprint est déjà en cours",
+      "noStoriesInSprint": "Aucune story en attente dans le sprint",
+      "startFailed": "Échec du démarrage de l'exécution du sprint",
+      "stopFailed": "Échec de l'arrêt de l'exécution du sprint"
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de bord du Sprint",
+    "notFound": "Sprint non trouvé",
+    "started": "Démarré : {{date}}",
+    "completed": "Terminé : {{date}}",
+    "progress": "{{attempted}} sur {{total}} tentés",
+    "viewDetails": "Voir les détails",
+    "duration": "{{minutes}}m {{seconds}}s",
+    "inProgress": "En cours"
+  },
+  "failure": {
+    "viewStory": "Voir la story complète",
+    "editStory": "Modifier la story",
+    "retry": "Réessayer",
+    "retryConfirm": "Remettre cette story en attente et la relancer ?",
+    "retrySuccess": "Story remise en file d'attente"
+  },
+  "share": {
+    "title": "Partager les artefacts de planification",
+    "selectArtifacts": "Sélectionner les artefacts à partager :",
+    "productbrief": "Brief Produit",
+    "prd": "Document des exigences produit",
+    "architecture": "Architecture",
+    "epics": "Epics",
+    "stories": "Stories individuelles",
+    "exportFormat": "Format d'export :",
+    "formatMarkdown": "Markdown (.md) - Texte brut, facile à partager",
+    "formatHtml": "HTML (.html) - Stylisé, s'ouvre dans le navigateur",
+    "export": "Exporter et télécharger",
+    "preview": "Aperçu",
+    "feedbackNote": "Partagez ces artefacts avec les parties prenantes pour obtenir leurs retours. Demandez-leur de fournir leurs suggestions par email ou votre outil de communication préféré."
   }
 }

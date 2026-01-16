@@ -345,6 +345,27 @@ useEffect(() => {
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+N/A - Implementation proceeded without errors
+
 ### Completion Notes List
+- Created SprintDashboard component with real-time updates and execution controls
+- Created DashboardStats component with clickable stat cards for filtering
+- Created StoryStatusList component with collapsible sections by status
+- Added IPC handlers for dashboard data in planning-handlers.ts
+- Added API methods in planning-api.ts
+- Added i18n translations for dashboard (en/planning.json and fr/planning.json)
+- Dashboard supports real-time polling during active sprint execution
+- Integration with sprintStore for state management
+
 ### File List
+**New Files:**
+- `apps/frontend/src/renderer/components/planning/SprintDashboard.tsx` - Main dashboard component
+- `apps/frontend/src/renderer/components/planning/DashboardStats.tsx` - Stats cards component
+- `apps/frontend/src/renderer/components/planning/StoryStatusList.tsx` - Story list grouped by status
+
+**Modified Files:**
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added dashboard translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added French dashboard translations

@@ -586,5 +586,28 @@ export const IPC_CHANNELS = {
   // Sprint status operations (Story 4.3)
   PLANNING_SPRINT_START: 'planning:sprint:start',
   PLANNING_SPRINT_COMPLETE: 'planning:sprint:complete',
-  PLANNING_SPRINT_STATUS_CHANGED: 'planning:sprint:statusChanged'
+  PLANNING_SPRINT_STATUS_CHANGED: 'planning:sprint:statusChanged',
+
+  // Sprint execution operations (Story 5.1)
+  PLANNING_EXECUTION_START: 'planning:execution:start',
+  PLANNING_EXECUTION_STOP: 'planning:execution:stop',
+  PLANNING_EXECUTION_PAUSE: 'planning:execution:pause',
+  PLANNING_EXECUTION_RESUME: 'planning:execution:resume',
+  PLANNING_EXECUTION_STATUS: 'planning:execution:status',
+
+  // Sprint execution events (Story 5.1 - main -> renderer)
+  PLANNING_EXECUTION_STARTED: 'planning:execution:started',
+  PLANNING_EXECUTION_STORY_STARTED: 'planning:execution:storyStarted',
+  PLANNING_EXECUTION_STORY_COMPLETED: 'planning:execution:storyCompleted',
+  PLANNING_EXECUTION_STORY_FAILED: 'planning:execution:storyFailed',
+  PLANNING_EXECUTION_STORY_SKIPPED: 'planning:execution:storySkipped',
+  PLANNING_EXECUTION_RETRYING: 'planning:execution:retrying',
+  PLANNING_EXECUTION_COMPLETED: 'planning:execution:completed',
+  PLANNING_EXECUTION_PAUSED: 'planning:execution:paused',
+  PLANNING_EXECUTION_RESUMED: 'planning:execution:resumed',
+  PLANNING_EXECUTION_ERROR: 'planning:execution:error',
+
+  // Sprint dashboard operations (Story 6.1, 6.2)
+  PLANNING_FAILURE_DETAILS_GET: 'planning:failure:get',
+  PLANNING_STORY_RETRY: 'planning:story:retry'
 } as const;

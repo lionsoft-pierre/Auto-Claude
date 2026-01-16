@@ -306,3 +306,133 @@ export interface PriorityUpdate {
   taskId: string;
   priority: number;
 }
+
+// ============================================================================
+// Sprint Execution Types (Epic 5)
+// ============================================================================
+
+/**
+ * Sprint execution status (Story 5.1)
+ */
+export type ExecutionStatus = 'idle' | 'running' | 'paused' | 'completed' | 'stopped';
+
+/**
+ * Execution assignment status with additional states (Story 5.3, 5.4)
+ */
+export type ExecutionAssignmentStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'failed'
+  | 'skipped';
+
+/**
+ * Extended sprint assignment for execution tracking (Story 5.1)
+ */
+export interface ExecutionAssignment extends Omit<SprintAssignment, 'status'> {
+  status: ExecutionAssignmentStatus;
+  title?: string;
+  startedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  skippedAt?: string;
+  failureReason?: string;
+  skipReason?: string;
+  duration?: number;
+}
+
+/**
+ * Sprint execution state (Story 5.1)
+ */
+export interface SprintExecutionState {
+  sprintId: string;
+  status: ExecutionStatus;
+  startedAt?: string;
+  completedAt?: string;
+  currentStoryId?: string;
+  currentStoryTitle?: string;
+  storiesCompleted: number;
+  storiesFailed: number;
+  storiesSkipped: number;
+  storiesTotal: number;
+  lastError?: string;
+}
+
+/**
+ * Execution progress event (Story 5.1)
+ */
+export interface ExecutionProgressEvent {
+  type: 'started' | 'story_started' | 'story_completed' | 'story_failed' | 'story_skipped' | 'retrying' | 'completed' | 'paused' | 'resumed' | 'error';
+  sprintId: string;
+  storyId?: string;
+  storyTitle?: string;
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Story start event (Story 5.2)
+ */
+export interface StoryStartEvent {
+  storyId: string;
+  storyTitle: string;
+  priority: number;
+}
+
+/**
+ * Story completion event (Story 5.2)
+ */
+export interface StoryCompletionEvent {
+  storyId: string;
+  status: 'completed' | 'failed' | 'skipped';
+  duration: number;
+  error?: string;
+  skipReason?: string;
+}
+
+/**
+ * Retry event (Story 5.4)
+ */
+export interface RetryEvent {
+  storyId: string;
+  attempt: number;
+  maxAttempts: number;
+  error: string;
+  delaySeconds: number;
+}
+
+/**
+ * Failure analysis from AI (Story 5.3)
+ */
+export interface FailureAnalysis {
+  summary: string;
+  analysis: string;
+  fixes: string;
+}
+
+/**
+ * Failure log entry (Story 5.3)
+ */
+export interface FailureLogEntry {
+  attempt: number;
+  timestamp: string;
+  duration: number;
+  phase: string;
+  analysis: FailureAnalysis;
+  rawError: string;
+  artifacts: string[];
+}
+
+/**
+ * Sprint execution summary (Story 5.1)
+ */
+export interface SprintExecutionSummary {
+  sprintId: string;
+  startedAt: string;
+  completedAt: string;
+  durationSeconds: number;
+  storiesCompleted: number;
+  storiesFailed: number;
+  storiesSkipped: number;
+  totalAttempted: number;
+  successRate: number;
+}

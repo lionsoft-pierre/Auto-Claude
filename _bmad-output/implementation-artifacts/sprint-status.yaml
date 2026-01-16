@@ -28,33 +28,33 @@ development_status:
   # Execute full BMAD methodology and manage generated planning artifacts
   # Stories: 6 | FRs: FR7-FR17
   # ═══════════════════════════════════════════════════════════════════════════
-  epic-2: backlog
-  2-1-bmad-workflow-execution-engine: ready-for-dev
-  2-2-artifact-generation-storage: ready-for-dev
-  2-3-artifact-review-approval: ready-for-dev
-  2-4-artifact-viewing-editing: ready-for-dev
-  2-5-artifact-linking-navigation: ready-for-dev
-  2-6-git-checkpoint-commits: ready-for-dev
+  epic-2: done
+  2-1-bmad-workflow-execution-engine: done  # Committed: 42e71ce9
+  2-2-artifact-generation-storage: done  # Committed: 42e71ce9
+  2-3-artifact-review-approval: done  # Committed: 42e71ce9
+  2-4-artifact-viewing-editing: done  # Committed: 42e71ce9
+  2-5-artifact-linking-navigation: done  # Committed: 42e71ce9
+  2-6-git-checkpoint-commits: done  # Committed: 42e71ce9
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Epic 3: Story-to-Task Conversion
   # Planning artifacts automatically become executable Kanban tasks
   # Stories: 3 | FRs: FR18-FR24
   # ═══════════════════════════════════════════════════════════════════════════
-  epic-3: backlog
-  3-1-story-generation-from-epics: ready-for-dev
-  3-2-story-review-editing: ready-for-dev
-  3-3-kanban-task-creation: ready-for-dev
+  epic-3: done
+  3-1-story-generation-from-epics: done  # Committed: 535e9beb
+  3-2-story-review-editing: done  # Committed: 535e9beb
+  3-3-kanban-task-creation: done  # Committed: 535e9beb
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Epic 4: Sprint Planning & Queue Management
   # Organize tasks into sprints with priority ordering
   # Stories: 3 | FRs: FR25-FR30
   # ═══════════════════════════════════════════════════════════════════════════
-  epic-4: backlog
-  4-1-sprint-tagging-assignment: ready-for-dev
-  4-2-sprint-queue-prioritization: ready-for-dev
-  4-3-sprint-status-tracking: ready-for-dev
+  epic-4: done
+  4-1-sprint-tagging-assignment: done  # Committed: c68963f6
+  4-2-sprint-queue-prioritization: done  # Committed: c68963f6
+  4-3-sprint-status-tracking: done  # Committed: c68963f6
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Epic 5: Overnight Execution Engine
@@ -93,12 +93,12 @@ summary:
   total_stories: 24
   by_status:
     backlog: 0
-    ready-for-dev: 20
+    ready-for-dev: 8
     in-progress: 0
     review: 0
-    done: 4
+    done: 16
   last_updated: "2026-01-16"
-  current_epic: epic-2
+  current_epic: epic-5
   epic_sequence:
     - epic-1  # Foundation - UI, sessions, chat
     - epic-2  # BMAD value - workflows, artifacts

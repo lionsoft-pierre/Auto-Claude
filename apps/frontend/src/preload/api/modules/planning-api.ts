@@ -18,6 +18,8 @@ import type {
   SprintAssignment,
   SprintQueue,
   PriorityUpdate,
+  SprintExecutionState,
+  SprintExecutionSummary,
   IPCResult
 } from '../../../shared/types';
 import { invokeIpc, createIpcListener, sendIpc, type IpcListenerCleanup } from './ipc-utils';
@@ -89,6 +91,40 @@ export interface PlanningAPI {
   startSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
   completeSprint: (projectId: string, sprintId: string) => Promise<IPCResult<Sprint>>;
   onSprintStatusChanged: (callback: (projectId: string, sprint: Sprint) => void) => IpcListenerCleanup;
+
+  // Sprint execution operations (Story 5.1)
+  startSprintExecution: (projectId: string, sprintId: string) => Promise<IPCResult<{ started: boolean }>>;
+  stopSprintExecution: (projectId: string) => Promise<IPCResult>;
+  pauseSprintExecution: (projectId: string) => Promise<IPCResult>;
+  resumeSprintExecution: (projectId: string) => Promise<IPCResult>;
+  getSprintExecutionStatus: (projectId: string) => Promise<IPCResult<SprintExecutionState>>;
+
+  // Sprint execution events (Story 5.1, 5.2, 5.3, 5.4)
+  onSprintExecutionStarted: (callback: (projectId: string, data: { sprintId: string; totalStories: number }) => void) => IpcListenerCleanup;
+  onSprintExecutionStoryStarted: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string }) => void) => IpcListenerCleanup;
+  onSprintExecutionStoryCompleted: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string; duration: number }) => void) => IpcListenerCleanup;
+  onSprintExecutionStoryFailed: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string; error: string }) => void) => IpcListenerCleanup;
+  onSprintExecutionStorySkipped: (callback: (projectId: string, data: { sprintId: string; storyId: string; skipReason: string }) => void) => IpcListenerCleanup;
+  onSprintExecutionRetrying: (callback: (projectId: string, data: { sprintId: string; storyId: string; attempt: number; error: string; delaySeconds: number }) => void) => IpcListenerCleanup;
+  onSprintExecutionCompleted: (callback: (projectId: string, data: SprintExecutionSummary) => void) => IpcListenerCleanup;
+  onSprintExecutionPaused: (callback: (projectId: string, data: { sprintId: string }) => void) => IpcListenerCleanup;
+  onSprintExecutionResumed: (callback: (projectId: string, data: { sprintId: string }) => void) => IpcListenerCleanup;
+  onSprintExecutionError: (callback: (projectId: string, data: { sprintId: string; error: string }) => void) => IpcListenerCleanup;
+
+  // Sprint dashboard operations (Story 6.1, 6.2)
+  getFailureDetails: (projectId: string, storyId: string) => Promise<IPCResult<{
+    storyTitle: string;
+    failures: Array<{
+      attempt: number;
+      timestamp: string;
+      duration: number;
+      phase: string;
+      analysis: { summary: string; analysis: string; fixes: string };
+      rawError: string;
+      artifacts: string[];
+    }>;
+  }>>;
+  retryStory: (projectId: string, storyId: string) => Promise<IPCResult>;
 }
 
 /**
@@ -225,5 +261,70 @@ export const createPlanningAPI = (): PlanningAPI => ({
     invokeIpc(IPC_CHANNELS.PLANNING_SPRINT_COMPLETE, projectId, sprintId),
 
   onSprintStatusChanged: (callback: (projectId: string, sprint: Sprint) => void): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.PLANNING_SPRINT_STATUS_CHANGED, callback)
+    createIpcListener(IPC_CHANNELS.PLANNING_SPRINT_STATUS_CHANGED, callback),
+
+  // Sprint execution operations (Story 5.1)
+  startSprintExecution: (projectId: string, sprintId: string): Promise<IPCResult<{ started: boolean }>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_EXECUTION_START, projectId, sprintId),
+
+  stopSprintExecution: (projectId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_EXECUTION_STOP, projectId),
+
+  pauseSprintExecution: (projectId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_EXECUTION_PAUSE, projectId),
+
+  resumeSprintExecution: (projectId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_EXECUTION_RESUME, projectId),
+
+  getSprintExecutionStatus: (projectId: string): Promise<IPCResult<SprintExecutionState>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_EXECUTION_STATUS, projectId),
+
+  // Sprint execution events (Story 5.1, 5.2, 5.3, 5.4)
+  onSprintExecutionStarted: (callback: (projectId: string, data: { sprintId: string; totalStories: number }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_STARTED, callback),
+
+  onSprintExecutionStoryStarted: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_STORY_STARTED, callback),
+
+  onSprintExecutionStoryCompleted: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string; duration: number }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_STORY_COMPLETED, callback),
+
+  onSprintExecutionStoryFailed: (callback: (projectId: string, data: { sprintId: string; storyId: string; storyTitle: string; error: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_STORY_FAILED, callback),
+
+  onSprintExecutionStorySkipped: (callback: (projectId: string, data: { sprintId: string; storyId: string; skipReason: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_STORY_SKIPPED, callback),
+
+  onSprintExecutionRetrying: (callback: (projectId: string, data: { sprintId: string; storyId: string; attempt: number; error: string; delaySeconds: number }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_RETRYING, callback),
+
+  onSprintExecutionCompleted: (callback: (projectId: string, data: SprintExecutionSummary) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_COMPLETED, callback),
+
+  onSprintExecutionPaused: (callback: (projectId: string, data: { sprintId: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_PAUSED, callback),
+
+  onSprintExecutionResumed: (callback: (projectId: string, data: { sprintId: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_RESUMED, callback),
+
+  onSprintExecutionError: (callback: (projectId: string, data: { sprintId: string; error: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_EXECUTION_ERROR, callback),
+
+  // Sprint dashboard operations (Story 6.1, 6.2)
+  getFailureDetails: (projectId: string, storyId: string): Promise<IPCResult<{
+    storyTitle: string;
+    failures: Array<{
+      attempt: number;
+      timestamp: string;
+      duration: number;
+      phase: string;
+      analysis: { summary: string; analysis: string; fixes: string };
+      rawError: string;
+      artifacts: string[];
+    }>;
+  }>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_FAILURE_DETAILS_GET, projectId, storyId),
+
+  retryStory: (projectId: string, storyId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORY_RETRY, projectId, storyId)
 });
