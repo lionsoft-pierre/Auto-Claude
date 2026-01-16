@@ -1,6 +1,6 @@
 # Story 3.2: Story Review and Editing
 
-Status: ready-for-dev
+Status: dev-complete
 
 ## Story
 
@@ -369,6 +369,24 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5
+
 ### Debug Log References
+N/A - No errors during implementation
+
 ### Completion Notes List
+- Created storyStore.ts with Zustand for story state management
+- Implemented story grouping by epic with collapsible sections
+- Created StoryList.tsx with status badges and generation progress indicator
+- Created StoryDetail.tsx with markdown rendering and edit mode
+- Implemented clarity test workflow (Mark Ready / Needs Refinement buttons)
+- Added unsaved changes warning dialog
+- Added i18n translations for story list, detail, and status labels
+
 ### File List
+- apps/frontend/src/renderer/stores/planning/storyStore.ts - Story state management
+- apps/frontend/src/renderer/stores/planning/index.ts - Export storyStore
+- apps/frontend/src/renderer/components/planning/StoryList.tsx - Story list grouped by epic
+- apps/frontend/src/renderer/components/planning/StoryDetail.tsx - Story detail with edit
+- apps/frontend/src/shared/i18n/locales/en/planning.json - Story i18n keys
+- apps/frontend/src/shared/i18n/locales/fr/planning.json - French translations

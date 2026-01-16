@@ -114,5 +114,52 @@
     "create": "Créer un point de contrôle",
     "empty": "Aucun point de contrôle",
     "latest": "Dernier"
+  },
+  "stories": {
+    "title": "Stories",
+    "noStories": "Aucune story générée",
+    "generate": "Générer les stories",
+    "generating": "Génération des stories à partir des epics...",
+    "generatingStory": "Génération de la story {{number}}: {{title}}",
+    "generated": "{{count}} stories générées",
+    "epic": "Epic",
+    "markReady": "Marquer prêt",
+    "needsRefinement": "Besoin de raffinement",
+    "edit": "Modifier",
+    "save": "Enregistrer",
+    "saved": "Story enregistrée",
+    "statusUpdated": "Statut de la story mis à jour",
+    "editPlaceholder": "Modifiez le contenu de la story au format Markdown...",
+    "unsavedChangesTitle": "Modifications non enregistrées",
+    "unsavedChangesMessage": "Vous avez des modifications non enregistrées. Voulez-vous les abandonner ?",
+    "discardChanges": "Abandonner les modifications"
+  },
+  "clarityTest": {
+    "label": "Test de clarté",
+    "explanation": "Le test de clarté : Pourriez-vous implémenter cette story vous-même en vous basant uniquement sur sa description et ses critères d'acceptation ? Si oui, elle est prête. Sinon, elle a besoin de plus de détails."
+  },
+  "storyStatus": {
+    "draft": "Brouillon",
+    "ready": "Prêt",
+    "needs_refinement": "Besoin de raffinement",
+    "in_progress": "En cours",
+    "completed": "Terminé",
+    "failed": "Échec"
+  },
+  "convert": {
+    "button": "Convertir {{count}} stories en tâches",
+    "confirmTitle": "Convertir les stories en tâches",
+    "confirmMessage": "Cela créera des tâches Kanban pour {{count}} stories prêtes. Les stories seront marquées comme 'En cours'.",
+    "confirm": "Convertir",
+    "converting": "Conversion des stories...",
+    "success": "{{count}} tâches créées",
+    "error": "Échec de la conversion des stories",
+    "resultsTitle": "Résultats de la conversion",
+    "resultsMessage": "Certaines stories ont rencontré des problèmes lors de la conversion :",
+    "duplicateTitle": "Tâche existante",
+    "duplicateMessage": "Une tâche pour \"{{title}}\" existe déjà. Que voulez-vous faire ?",
+    "skip": "Ignorer",
+    "update": "Mettre à jour",
+    "viewStory": "Voir la story"
   }
 }

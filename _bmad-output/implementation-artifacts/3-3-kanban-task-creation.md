@@ -1,6 +1,6 @@
 # Story 3.3: Kanban Task Creation
 
-Status: ready-for-dev
+Status: dev-complete
 
 ## Story
 
@@ -340,6 +340,25 @@ export const DuplicateWarningDialog: React.FC<Props> = ({
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5
+
 ### Debug Log References
+N/A - No errors during implementation
+
 ### Completion Notes List
+- Created ConvertToTasksButton.tsx with confirmation and results dialogs
+- Added PlanningTaskFields to planning.ts (storyId, storyPath, acceptanceCriteriaSummary, testScope)
+- Added StoryConversionResult type for conversion results
+- Implemented IPC handlers for single and batch story conversion
+- Added duplicate detection via checkStoryDuplicate handler
+- Added conversion i18n translations in both languages
+- Added "ok" button translation to common.json
+
 ### File List
+- apps/frontend/src/renderer/components/planning/ConvertToTasksButton.tsx - Convert button with dialogs
+- apps/frontend/src/shared/types/planning.ts - Added PlanningTaskFields, StoryConversionResult
+- apps/frontend/src/main/ipc-handlers/planning-handlers.ts - Added conversion handlers
+- apps/frontend/src/shared/i18n/locales/en/planning.json - Convert i18n keys
+- apps/frontend/src/shared/i18n/locales/fr/planning.json - French conversion translations
+- apps/frontend/src/shared/i18n/locales/en/common.json - Added "ok" button
+- apps/frontend/src/shared/i18n/locales/fr/common.json - Added "ok" button

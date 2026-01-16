@@ -114,7 +114,11 @@ import type {
   PlanningArtifact,
   ArtifactType,
   CheckpointResult,
-  CheckpointEntry
+  CheckpointEntry,
+  StorySummary,
+  Story,
+  StoryStatus,
+  StoryConversionResult
 } from './planning';
 import type {
   LinearTeam,
@@ -843,6 +847,23 @@ export interface ElectronAPI {
   createPlanningCheckpoint: (projectId: string) => Promise<IPCResult<CheckpointResult>>;
   listPlanningCheckpoints: (projectId: string) => Promise<IPCResult<CheckpointEntry[]>>;
   viewArtifactAtCheckpoint: (projectId: string, commitHash: string, artifactPath: string) => Promise<IPCResult<string>>;
+
+  // Planning story operations (Story 3.1, 3.2)
+  listPlanningStories: (projectId: string) => Promise<IPCResult<StorySummary[]>>;
+  generatePlanningStories: (projectId: string) => void;
+  loadPlanningStory: (projectId: string, storyId: string) => Promise<IPCResult<Story>>;
+  updatePlanningStory: (projectId: string, storyId: string, content: string) => Promise<IPCResult<Story>>;
+  setStoryStatus: (projectId: string, storyId: string, status: StoryStatus) => Promise<IPCResult>;
+
+  // Planning story generation events (Story 3.1)
+  onPlanningStoriesProgress: (callback: (projectId: string, progress: { current: number; total: number; storyTitle: string }) => void) => () => void;
+  onPlanningStoriesComplete: (callback: (projectId: string, count: number) => void) => () => void;
+  onPlanningStoriesError: (callback: (projectId: string, error: string) => void) => () => void;
+
+  // Planning story to task conversion (Story 3.3)
+  convertStoryToTask: (projectId: string, storyId: string) => Promise<IPCResult<StoryConversionResult>>;
+  convertStoriesToTasks: (projectId: string, storyIds: string[]) => Promise<IPCResult<StoryConversionResult[]>>;
+  checkStoryDuplicate: (projectId: string, storyId: string) => Promise<IPCResult<{ isDuplicate: boolean; existingTaskId?: string }>>;
 }
 
 declare global {

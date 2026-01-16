@@ -114,5 +114,52 @@
     "create": "Create Checkpoint",
     "empty": "No checkpoints yet",
     "latest": "Latest"
+  },
+  "stories": {
+    "title": "Stories",
+    "noStories": "No stories generated yet",
+    "generate": "Generate Stories",
+    "generating": "Generating stories from epics...",
+    "generatingStory": "Generating story {{number}}: {{title}}",
+    "generated": "Generated {{count}} stories",
+    "epic": "Epic",
+    "markReady": "Mark Ready",
+    "needsRefinement": "Needs Refinement",
+    "edit": "Edit",
+    "save": "Save",
+    "saved": "Story saved",
+    "statusUpdated": "Story status updated",
+    "editPlaceholder": "Edit story content in Markdown format...",
+    "unsavedChangesTitle": "Unsaved Changes",
+    "unsavedChangesMessage": "You have unsaved changes to this story. Do you want to discard them?",
+    "discardChanges": "Discard Changes"
+  },
+  "clarityTest": {
+    "label": "Clarity Test",
+    "explanation": "The clarity test: Could you implement this story yourself based only on its description and acceptance criteria? If yes, it's ready. If not, it needs more detail."
+  },
+  "storyStatus": {
+    "draft": "Draft",
+    "ready": "Ready",
+    "needs_refinement": "Needs Refinement",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "convert": {
+    "button": "Convert {{count}} Stories to Tasks",
+    "confirmTitle": "Convert Stories to Tasks",
+    "confirmMessage": "This will create Kanban tasks for {{count}} ready stories. The stories will be marked as 'In Progress'.",
+    "confirm": "Convert",
+    "converting": "Converting stories...",
+    "success": "Created {{count}} tasks",
+    "error": "Failed to convert stories",
+    "resultsTitle": "Conversion Results",
+    "resultsMessage": "Some stories had issues during conversion:",
+    "duplicateTitle": "Task Already Exists",
+    "duplicateMessage": "A task for \"{{title}}\" already exists. What would you like to do?",
+    "skip": "Skip",
+    "update": "Update Existing",
+    "viewStory": "View Story"
   }
 }

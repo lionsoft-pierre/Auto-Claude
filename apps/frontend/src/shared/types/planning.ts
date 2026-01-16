@@ -168,3 +168,80 @@ export interface CheckpointEntry {
   message: string;
   date: string;
 }
+
+/**
+ * Story status for clarity test workflow (Story 3.1, 3.2)
+ */
+export type StoryStatus = 'draft' | 'ready' | 'needs_refinement' | 'in_progress' | 'completed' | 'failed';
+
+/**
+ * Test scope for stories (Story 3.1)
+ */
+export type TestScope = 'unit' | 'integration' | 'e2e';
+
+/**
+ * Story metadata stored in YAML frontmatter (Story 3.1)
+ */
+export interface StoryMetadata {
+  id: string;
+  number: number;
+  title: string;
+  epic: string;
+  status: StoryStatus;
+  testScope: TestScope;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * Full story with content (Story 3.1, 3.2)
+ */
+export interface Story {
+  metadata: StoryMetadata;
+  content: string;
+  filePath: string;
+}
+
+/**
+ * Story summary for listing (Story 3.2)
+ */
+export interface StorySummary {
+  id: string;
+  number: number;
+  title: string;
+  epic: string;
+  status: StoryStatus;
+  testScope: TestScope;
+  filePath: string;
+}
+
+/**
+ * Story group by epic for display (Story 3.2)
+ */
+export interface StoryGroup {
+  epicId: string;
+  epicTitle: string;
+  stories: StorySummary[];
+}
+
+/**
+ * Task fields for story reference (Story 3.3)
+ */
+export interface PlanningTaskFields {
+  storyId?: string;
+  storyPath?: string;
+  acceptanceCriteriaSummary?: string;
+  testScope?: TestScope;
+  epicId?: string;
+  convertedAt?: string;
+}
+
+/**
+ * Story to task conversion result (Story 3.3)
+ */
+export interface StoryConversionResult {
+  storyId: string;
+  taskId: string;
+  success: boolean;
+  error?: string;
+}

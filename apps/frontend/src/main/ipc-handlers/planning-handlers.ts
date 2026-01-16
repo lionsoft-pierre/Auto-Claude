@@ -17,7 +17,13 @@ import type {
   ArtifactMetadata,
   ArtifactStatus,
   CheckpointResult,
-  CheckpointEntry
+  CheckpointEntry,
+  StorySummary,
+  Story,
+  StoryStatus,
+  StoryMetadata,
+  StoryConversionResult,
+  TestScope
 } from '../../shared/types';
 import { projectStore } from '../project-store';
 
@@ -1042,6 +1048,730 @@ export function registerPlanningHandlers(): void {
           error: error instanceof Error ? error.message : 'Failed to view artifact at checkpoint'
         };
       }
+    }
+  );
+
+  // ============================================================
+  // Story 3.1, 3.2: Story Management Handlers
+  // ============================================================
+
+  /**
+   * Parse story frontmatter from markdown content
+   */
+  const parseStoryFrontmatter = (content: string): { metadata: Partial<StoryMetadata>; body: string } => {
+    const frontmatterRegex = /^---\n([\s\S]*?)\n---\n\n?([\s\S]*)$/;
+    const match = content.match(frontmatterRegex);
+
+    if (!match) {
+      return { metadata: {}, body: content };
+    }
+
+    const yamlContent = match[1];
+    const body = match[2];
+
+    const metadata: Partial<StoryMetadata> = {};
+    const lines = yamlContent.split('\n');
+    for (const line of lines) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex > 0) {
+        const key = line.substring(0, colonIndex).trim();
+        const value = line.substring(colonIndex + 1).trim().replace(/^['"]|['"]$/g, '');
+
+        switch (key) {
+          case 'id': metadata.id = value; break;
+          case 'number': metadata.number = parseInt(value, 10); break;
+          case 'title': metadata.title = value; break;
+          case 'epic': metadata.epic = value; break;
+          case 'status': metadata.status = value as StoryStatus; break;
+          case 'test_scope':
+          case 'testScope': metadata.testScope = value as TestScope; break;
+          case 'created_at':
+          case 'createdAt': metadata.createdAt = value; break;
+          case 'updated_at':
+          case 'updatedAt': metadata.updatedAt = value; break;
+        }
+      }
+    }
+
+    return { metadata, body };
+  };
+
+  /**
+   * Build content with story frontmatter
+   */
+  const buildStoryContentWithFrontmatter = (metadata: StoryMetadata, content: string): string => {
+    const frontmatter = `---
+id: ${metadata.id}
+number: ${metadata.number}
+title: ${metadata.title}
+epic: ${metadata.epic}
+status: ${metadata.status}
+testScope: ${metadata.testScope}
+createdAt: ${metadata.createdAt}${metadata.updatedAt ? `\nupdatedAt: ${metadata.updatedAt}` : ''}
+---
+
+`;
+    return frontmatter + content;
+  };
+
+  /**
+   * Send story progress to all renderer windows
+   */
+  const sendStoryProgress = (projectId: string, progress: { current: number; total: number; storyTitle: string }): void => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(IPC_CHANNELS.PLANNING_STORIES_PROGRESS, projectId, progress);
+    }
+  };
+
+  /**
+   * Send story complete to all renderer windows
+   */
+  const sendStoryComplete = (projectId: string, count: number): void => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(IPC_CHANNELS.PLANNING_STORIES_COMPLETE, projectId, count);
+    }
+  };
+
+  /**
+   * Send story error to all renderer windows
+   */
+  const sendStoryError = (projectId: string, error: string): void => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(IPC_CHANNELS.PLANNING_STORIES_ERROR, projectId, error);
+    }
+  };
+
+  // List all stories
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORIES_LIST,
+    async (_, projectId: string): Promise<IPCResult<StorySummary[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const storiesDir = path.join(project.path, '.auto-claude', 'planning', 'stories');
+        const stories: StorySummary[] = [];
+
+        if (!existsSync(storiesDir)) {
+          return { success: true, data: [] };
+        }
+
+        const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+
+        for (const filename of storyFiles) {
+          const filePath = path.join(storiesDir, filename);
+          const content = readFileSync(filePath, 'utf-8');
+          const { metadata } = parseStoryFrontmatter(content);
+
+          stories.push({
+            id: metadata.id || randomUUID(),
+            number: metadata.number || 0,
+            title: metadata.title || filename.replace('.md', ''),
+            epic: metadata.epic || '',
+            status: metadata.status || 'draft',
+            testScope: metadata.testScope || 'unit',
+            filePath
+          });
+        }
+
+        // Sort by number
+        stories.sort((a, b) => a.number - b.number);
+
+        return { success: true, data: stories };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list stories'
+        };
+      }
+    }
+  );
+
+  // Generate stories from epics (async with progress events)
+  ipcMain.on(
+    IPC_CHANNELS.PLANNING_STORIES_GENERATE,
+    async (_, projectId: string) => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        sendStoryError(projectId, 'Project not found');
+        return;
+      }
+
+      try {
+        const planningDir = path.join(project.path, '.auto-claude', 'planning');
+        const epicsPath = path.join(planningDir, 'epics.md');
+        const storiesDir = path.join(planningDir, 'stories');
+
+        if (!existsSync(epicsPath)) {
+          sendStoryError(projectId, 'Epics document not found');
+          return;
+        }
+
+        // Ensure stories directory exists
+        if (!existsSync(storiesDir)) {
+          mkdirSync(storiesDir, { recursive: true });
+        }
+
+        // Read epics content
+        const epicsContent = readFileSync(epicsPath, 'utf-8');
+
+        // Parse epics to extract story definitions
+        // This is a simple parser - in production, you'd use Claude to generate stories
+        const epicRegex = /## Epic \d+[:\s]+([^\n]+)/g;
+        const storyRegex = /### Story \d+[:\s]+([^\n]+)/g;
+
+        const epics: { title: string; stories: string[] }[] = [];
+        let currentEpic: { title: string; stories: string[] } | null = null;
+        let match;
+
+        // Split content by epic headers
+        const epicSections = epicsContent.split(/(?=## Epic \d+)/);
+
+        for (const section of epicSections) {
+          const epicMatch = section.match(/## Epic \d+[:\s]+([^\n]+)/);
+          if (epicMatch) {
+            currentEpic = { title: epicMatch[1].trim(), stories: [] };
+            epics.push(currentEpic);
+
+            // Find stories in this epic section
+            const storyMatches = section.matchAll(/### Story \d+[:\s]+([^\n]+)/g);
+            for (const storyMatch of storyMatches) {
+              currentEpic.stories.push(storyMatch[1].trim());
+            }
+          }
+        }
+
+        // Generate story files
+        let storyCounter = 0;
+        const totalStories = epics.reduce((sum, e) => sum + e.stories.length, 0);
+
+        for (const epic of epics) {
+          const epicSlug = epic.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
+
+          for (const storyTitle of epic.stories) {
+            storyCounter++;
+            sendStoryProgress(projectId, { current: storyCounter, total: totalStories, storyTitle });
+
+            const storySlug = storyTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
+            const filename = `story-${storyCounter.toString().padStart(3, '0')}-${storySlug}.md`;
+            const filePath = path.join(storiesDir, filename);
+
+            // Skip if story already exists
+            if (existsSync(filePath)) {
+              continue;
+            }
+
+            const now = new Date().toISOString();
+            const metadata: StoryMetadata = {
+              id: randomUUID(),
+              number: storyCounter,
+              title: storyTitle,
+              epic: epicSlug,
+              status: 'draft',
+              testScope: 'unit',
+              createdAt: now
+            };
+
+            const storyContent = `# Story ${storyCounter}: ${storyTitle}
+
+## Story
+
+As a **Technical Founder**,
+I want **${storyTitle.toLowerCase()}**,
+so that **the system provides this functionality**.
+
+## Acceptance Criteria
+
+1. **AC1: [Acceptance Criterion 1]**
+   - **Given** [context]
+   - **When** [action]
+   - **Then** [outcome]
+
+## Tasks / Subtasks
+
+- [ ] **Task 1: [Task name]** (AC: #1)
+  - [ ] 1.1: [Subtask]
+
+## Dev Notes
+
+### Context Links
+- **Epic**: ${epic.title}
+
+### Test Scope
+**Unit** - Default test scope
+
+## Dev Agent Record
+
+### Agent Model Used
+### Debug Log References
+### Completion Notes List
+### File List
+`;
+
+            const fullContent = buildStoryContentWithFrontmatter(metadata, storyContent);
+            writeFileSync(filePath, fullContent, 'utf-8');
+
+            // Small delay to allow UI updates
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        }
+
+        sendStoryComplete(projectId, storyCounter);
+      } catch (error) {
+        sendStoryError(projectId, error instanceof Error ? error.message : 'Failed to generate stories');
+      }
+    }
+  );
+
+  // Load a specific story
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORY_LOAD,
+    async (_, projectId: string, storyId: string): Promise<IPCResult<Story>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const storiesDir = path.join(project.path, '.auto-claude', 'planning', 'stories');
+
+        if (!existsSync(storiesDir)) {
+          return { success: false, error: 'Stories directory not found' };
+        }
+
+        const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+
+        for (const filename of storyFiles) {
+          const filePath = path.join(storiesDir, filename);
+          const rawContent = readFileSync(filePath, 'utf-8');
+          const { metadata, body } = parseStoryFrontmatter(rawContent);
+
+          if (metadata.id === storyId) {
+            const fullMetadata: StoryMetadata = {
+              id: metadata.id || storyId,
+              number: metadata.number || 0,
+              title: metadata.title || '',
+              epic: metadata.epic || '',
+              status: metadata.status || 'draft',
+              testScope: metadata.testScope || 'unit',
+              createdAt: metadata.createdAt || new Date().toISOString(),
+              updatedAt: metadata.updatedAt
+            };
+
+            return {
+              success: true,
+              data: {
+                metadata: fullMetadata,
+                content: body,
+                filePath
+              }
+            };
+          }
+        }
+
+        return { success: false, error: 'Story not found' };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to load story'
+        };
+      }
+    }
+  );
+
+  // Update a story
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORY_UPDATE,
+    async (_, projectId: string, storyId: string, content: string): Promise<IPCResult<Story>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const storiesDir = path.join(project.path, '.auto-claude', 'planning', 'stories');
+
+        if (!existsSync(storiesDir)) {
+          return { success: false, error: 'Stories directory not found' };
+        }
+
+        const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+
+        for (const filename of storyFiles) {
+          const filePath = path.join(storiesDir, filename);
+          const rawContent = readFileSync(filePath, 'utf-8');
+          const { metadata } = parseStoryFrontmatter(rawContent);
+
+          if (metadata.id === storyId) {
+            const now = new Date().toISOString();
+            const fullMetadata: StoryMetadata = {
+              id: metadata.id || storyId,
+              number: metadata.number || 0,
+              title: metadata.title || '',
+              epic: metadata.epic || '',
+              status: metadata.status || 'draft',
+              testScope: metadata.testScope || 'unit',
+              createdAt: metadata.createdAt || now,
+              updatedAt: now
+            };
+
+            const fullContent = buildStoryContentWithFrontmatter(fullMetadata, content);
+
+            // Atomic write
+            const tempPath = filePath + '.tmp';
+            writeFileSync(tempPath, fullContent, 'utf-8');
+            renameSync(tempPath, filePath);
+
+            return {
+              success: true,
+              data: {
+                metadata: fullMetadata,
+                content,
+                filePath
+              }
+            };
+          }
+        }
+
+        return { success: false, error: 'Story not found' };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update story'
+        };
+      }
+    }
+  );
+
+  // Set story status (for clarity test workflow)
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORY_SET_STATUS,
+    async (_, projectId: string, storyId: string, status: StoryStatus): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const storiesDir = path.join(project.path, '.auto-claude', 'planning', 'stories');
+
+        if (!existsSync(storiesDir)) {
+          return { success: false, error: 'Stories directory not found' };
+        }
+
+        const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+
+        for (const filename of storyFiles) {
+          const filePath = path.join(storiesDir, filename);
+          const rawContent = readFileSync(filePath, 'utf-8');
+          const { metadata, body } = parseStoryFrontmatter(rawContent);
+
+          if (metadata.id === storyId) {
+            const now = new Date().toISOString();
+            const fullMetadata: StoryMetadata = {
+              id: metadata.id || storyId,
+              number: metadata.number || 0,
+              title: metadata.title || '',
+              epic: metadata.epic || '',
+              status,
+              testScope: metadata.testScope || 'unit',
+              createdAt: metadata.createdAt || now,
+              updatedAt: now
+            };
+
+            const fullContent = buildStoryContentWithFrontmatter(fullMetadata, body);
+            writeFileSync(filePath, fullContent, 'utf-8');
+
+            return { success: true };
+          }
+        }
+
+        return { success: false, error: 'Story not found' };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to set story status'
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // Story 3.3: Story to Task Conversion Handlers
+  // ============================================================
+
+  // Check for duplicate story->task conversion
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORY_CHECK_DUPLICATE,
+    async (_, projectId: string, storyId: string): Promise<IPCResult<{ isDuplicate: boolean; existingTaskId?: string }>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        // Check tasks.json for existing task with this storyId
+        const tasksPath = path.join(project.path, '.auto-claude', 'tasks.json');
+        if (!existsSync(tasksPath)) {
+          return { success: true, data: { isDuplicate: false } };
+        }
+
+        const tasksContent = readFileSync(tasksPath, 'utf-8');
+        const tasks = JSON.parse(tasksContent);
+
+        for (const task of tasks) {
+          if (task.storyId === storyId) {
+            return { success: true, data: { isDuplicate: true, existingTaskId: task.id } };
+          }
+        }
+
+        return { success: true, data: { isDuplicate: false } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check duplicate'
+        };
+      }
+    }
+  );
+
+  // Convert a single story to a task
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORY_CONVERT,
+    async (_, projectId: string, storyId: string): Promise<IPCResult<StoryConversionResult>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        // Load the story
+        const storiesDir = path.join(project.path, '.auto-claude', 'planning', 'stories');
+        if (!existsSync(storiesDir)) {
+          return { success: false, error: 'Stories directory not found' };
+        }
+
+        let story: Story | null = null;
+        const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+
+        for (const filename of storyFiles) {
+          const filePath = path.join(storiesDir, filename);
+          const rawContent = readFileSync(filePath, 'utf-8');
+          const { metadata, body } = parseStoryFrontmatter(rawContent);
+
+          if (metadata.id === storyId) {
+            story = {
+              metadata: {
+                id: metadata.id || storyId,
+                number: metadata.number || 0,
+                title: metadata.title || '',
+                epic: metadata.epic || '',
+                status: metadata.status || 'draft',
+                testScope: metadata.testScope || 'unit',
+                createdAt: metadata.createdAt || new Date().toISOString(),
+                updatedAt: metadata.updatedAt
+              },
+              content: body,
+              filePath
+            };
+            break;
+          }
+        }
+
+        if (!story) {
+          return {
+            success: true,
+            data: { storyId, taskId: '', success: false, error: 'Story not found' }
+          };
+        }
+
+        // Generate task description from story
+        const userStoryMatch = story.content.match(/As a \*\*.*?\*\*,[\s\S]*?so that \*\*.*?\*\*/);
+        const description = userStoryMatch?.[0] || story.metadata.title;
+
+        // Extract acceptance criteria summary
+        const acMatches = story.content.matchAll(/\*\*AC\d+: ([^*]+)\*\*/g);
+        const acceptanceCriteriaSummary = Array.from(acMatches, m => m[1]).join(', ');
+
+        // Create task
+        const now = new Date().toISOString();
+        const taskId = `task-${story.metadata.number}`;
+        const task = {
+          id: taskId,
+          specId: '',
+          projectId,
+          title: story.metadata.title,
+          description,
+          status: 'backlog',
+          subtasks: [],
+          logs: [],
+          createdAt: now,
+          updatedAt: now,
+          // Planning fields (Story 3.3)
+          storyId: story.metadata.id,
+          storyPath: story.filePath,
+          acceptanceCriteriaSummary,
+          testScope: story.metadata.testScope,
+          epicId: story.metadata.epic,
+          convertedAt: now
+        };
+
+        // Load existing tasks and add new one
+        const tasksPath = path.join(project.path, '.auto-claude', 'tasks.json');
+        let tasks = [];
+        if (existsSync(tasksPath)) {
+          const tasksContent = readFileSync(tasksPath, 'utf-8');
+          tasks = JSON.parse(tasksContent);
+        }
+
+        tasks.push(task);
+        writeFileSync(tasksPath, JSON.stringify(tasks, null, 2));
+
+        // Update story status to in_progress
+        const storyNow = new Date().toISOString();
+        const updatedMetadata: StoryMetadata = {
+          ...story.metadata,
+          status: 'in_progress',
+          updatedAt: storyNow
+        };
+        const fullContent = buildStoryContentWithFrontmatter(updatedMetadata, story.content);
+        writeFileSync(story.filePath, fullContent, 'utf-8');
+
+        return {
+          success: true,
+          data: { storyId, taskId, success: true }
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to convert story to task'
+        };
+      }
+    }
+  );
+
+  // Convert multiple stories to tasks
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_STORIES_CONVERT_ALL,
+    async (_, projectId: string, storyIds: string[]): Promise<IPCResult<StoryConversionResult[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const results: StoryConversionResult[] = [];
+
+      for (const storyId of storyIds) {
+        try {
+          // Use the single conversion handler logic
+          const result = await new Promise<IPCResult<StoryConversionResult>>((resolve) => {
+            // We need to replicate the logic here since we can't call ipcMain.handle from within
+            const storiesDir = path.join(project.path, '.auto-claude', 'planning', 'stories');
+            if (!existsSync(storiesDir)) {
+              resolve({ success: true, data: { storyId, taskId: '', success: false, error: 'Stories directory not found' } });
+              return;
+            }
+
+            let story: Story | null = null;
+            const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md') && !f.includes('.rejected'));
+
+            for (const filename of storyFiles) {
+              const filePath = path.join(storiesDir, filename);
+              const rawContent = readFileSync(filePath, 'utf-8');
+              const { metadata, body } = parseStoryFrontmatter(rawContent);
+
+              if (metadata.id === storyId) {
+                story = {
+                  metadata: {
+                    id: metadata.id || storyId,
+                    number: metadata.number || 0,
+                    title: metadata.title || '',
+                    epic: metadata.epic || '',
+                    status: metadata.status || 'draft',
+                    testScope: metadata.testScope || 'unit',
+                    createdAt: metadata.createdAt || new Date().toISOString(),
+                    updatedAt: metadata.updatedAt
+                  },
+                  content: body,
+                  filePath
+                };
+                break;
+              }
+            }
+
+            if (!story) {
+              resolve({ success: true, data: { storyId, taskId: '', success: false, error: 'Story not found' } });
+              return;
+            }
+
+            // Generate task
+            const userStoryMatch = story.content.match(/As a \*\*.*?\*\*,[\s\S]*?so that \*\*.*?\*\*/);
+            const description = userStoryMatch?.[0] || story.metadata.title;
+            const acMatches = story.content.matchAll(/\*\*AC\d+: ([^*]+)\*\*/g);
+            const acceptanceCriteriaSummary = Array.from(acMatches, m => m[1]).join(', ');
+
+            const now = new Date().toISOString();
+            const taskId = `task-${story.metadata.number}`;
+            const task = {
+              id: taskId,
+              specId: '',
+              projectId,
+              title: story.metadata.title,
+              description,
+              status: 'backlog',
+              subtasks: [],
+              logs: [],
+              createdAt: now,
+              updatedAt: now,
+              storyId: story.metadata.id,
+              storyPath: story.filePath,
+              acceptanceCriteriaSummary,
+              testScope: story.metadata.testScope,
+              epicId: story.metadata.epic,
+              convertedAt: now
+            };
+
+            // Add to tasks
+            const tasksPath = path.join(project.path, '.auto-claude', 'tasks.json');
+            let tasks = [];
+            if (existsSync(tasksPath)) {
+              const tasksContent = readFileSync(tasksPath, 'utf-8');
+              tasks = JSON.parse(tasksContent);
+            }
+            tasks.push(task);
+            writeFileSync(tasksPath, JSON.stringify(tasks, null, 2));
+
+            // Update story status
+            const updatedMetadata: StoryMetadata = {
+              ...story.metadata,
+              status: 'in_progress',
+              updatedAt: now
+            };
+            const fullContent = buildStoryContentWithFrontmatter(updatedMetadata, story.content);
+            writeFileSync(story.filePath, fullContent, 'utf-8');
+
+            resolve({ success: true, data: { storyId, taskId, success: true } });
+          });
+
+          if (result.data) {
+            results.push(result.data);
+          }
+        } catch (error) {
+          results.push({
+            storyId,
+            taskId: '',
+            success: false,
+            error: error instanceof Error ? error.message : 'Conversion failed'
+          });
+        }
+      }
+
+      return { success: true, data: results };
     }
   );
 }

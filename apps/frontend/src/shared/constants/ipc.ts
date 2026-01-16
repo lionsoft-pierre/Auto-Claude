@@ -553,5 +553,22 @@ export const IPC_CHANNELS = {
   // Planning git checkpoint operations (Story 2.6)
   PLANNING_GIT_CHECKPOINT: 'planning:git:checkpoint',
   PLANNING_GIT_HISTORY: 'planning:git:history',
-  PLANNING_GIT_VIEW: 'planning:git:view'
+  PLANNING_GIT_VIEW: 'planning:git:view',
+
+  // Planning story operations (Story 3.1, 3.2)
+  PLANNING_STORIES_LIST: 'planning:stories:list',
+  PLANNING_STORIES_GENERATE: 'planning:stories:generate',
+  PLANNING_STORY_LOAD: 'planning:story:load',
+  PLANNING_STORY_UPDATE: 'planning:story:update',
+  PLANNING_STORY_SET_STATUS: 'planning:story:setStatus',
+
+  // Planning story generation events (Story 3.1)
+  PLANNING_STORIES_PROGRESS: 'planning:stories:progress',
+  PLANNING_STORIES_COMPLETE: 'planning:stories:complete',
+  PLANNING_STORIES_ERROR: 'planning:stories:error',
+
+  // Planning story to task conversion (Story 3.3)
+  PLANNING_STORY_CONVERT: 'planning:story:convert',
+  PLANNING_STORIES_CONVERT_ALL: 'planning:stories:convertAll',
+  PLANNING_STORY_CHECK_DUPLICATE: 'planning:story:checkDuplicate'
 } as const;

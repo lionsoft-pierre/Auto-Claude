@@ -417,6 +417,46 @@ const browserMockAPI: ElectronAPI = {
   viewArtifactAtCheckpoint: async () => ({
     success: false,
     error: 'Not available in browser mode'
+  }),
+
+  // Planning story operations (Story 3.1, 3.2)
+  listPlanningStories: async () => ({
+    success: true,
+    data: []
+  }),
+  generatePlanningStories: (_projectId: string) => {
+    console.warn('[Browser Mock] generatePlanningStories called');
+  },
+  loadPlanningStory: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  updatePlanningStory: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  setStoryStatus: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+
+  // Planning story generation events (Story 3.1)
+  onPlanningStoriesProgress: () => () => {},
+  onPlanningStoriesComplete: () => () => {},
+  onPlanningStoriesError: () => () => {},
+
+  // Planning story to task conversion (Story 3.3)
+  convertStoryToTask: async () => ({
+    success: true,
+    data: { storyId: '', taskId: '', success: false, error: 'Not available in browser mode' }
+  }),
+  convertStoriesToTasks: async () => ({
+    success: true,
+    data: []
+  }),
+  checkStoryDuplicate: async () => ({
+    success: true,
+    data: { isDuplicate: false }
   })
 };
 

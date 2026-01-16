@@ -1,6 +1,6 @@
 # Story 3.1: Story Generation from Epics
 
-Status: ready-for-dev
+Status: dev-complete
 
 ## Story
 
@@ -297,6 +297,25 @@ def determine_test_scope(story_def: dict) -> str:
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5
+
 ### Debug Log References
+N/A - No errors during implementation
+
 ### Completion Notes List
+- Implemented frontend-only story generation (IPC handlers parse epics.md directly)
+- Added story types to planning.ts (StoryStatus, TestScope, StoryMetadata, Story, StorySummary, StoryGroup)
+- Added IPC channels for story operations (11 new channels)
+- Implemented IPC handlers for listing stories, generating from epics, loading/updating stories
+- Added streaming progress events for story generation
+- Added i18n translations in both English and French
+
 ### File List
+- apps/frontend/src/shared/types/planning.ts - Added story types
+- apps/frontend/src/shared/constants/ipc.ts - Added IPC channels
+- apps/frontend/src/shared/types/ipc.ts - Added ElectronAPI methods
+- apps/frontend/src/preload/api/modules/planning-api.ts - Added preload API
+- apps/frontend/src/main/ipc-handlers/planning-handlers.ts - Added ~700 lines of handlers
+- apps/frontend/src/shared/i18n/locales/en/planning.json - Added story i18n keys
+- apps/frontend/src/shared/i18n/locales/fr/planning.json - Added French translations
+- apps/frontend/src/renderer/lib/browser-mock.ts - Added story mocks

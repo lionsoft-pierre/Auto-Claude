@@ -10,6 +10,10 @@ import type {
   ArtifactType,
   CheckpointResult,
   CheckpointEntry,
+  StorySummary,
+  Story,
+  StoryStatus,
+  StoryConversionResult,
   IPCResult
 } from '../../../shared/types';
 import { invokeIpc, createIpcListener, sendIpc, type IpcListenerCleanup } from './ipc-utils';
@@ -48,6 +52,23 @@ export interface PlanningAPI {
   createPlanningCheckpoint: (projectId: string) => Promise<IPCResult<CheckpointResult>>;
   listPlanningCheckpoints: (projectId: string) => Promise<IPCResult<CheckpointEntry[]>>;
   viewArtifactAtCheckpoint: (projectId: string, commitHash: string, artifactPath: string) => Promise<IPCResult<string>>;
+
+  // Story operations (Story 3.1, 3.2)
+  listPlanningStories: (projectId: string) => Promise<IPCResult<StorySummary[]>>;
+  generatePlanningStories: (projectId: string) => void;
+  loadPlanningStory: (projectId: string, storyId: string) => Promise<IPCResult<Story>>;
+  updatePlanningStory: (projectId: string, storyId: string, content: string) => Promise<IPCResult<Story>>;
+  setStoryStatus: (projectId: string, storyId: string, status: StoryStatus) => Promise<IPCResult>;
+
+  // Story generation events (Story 3.1)
+  onPlanningStoriesProgress: (callback: (projectId: string, progress: { current: number; total: number; storyTitle: string }) => void) => IpcListenerCleanup;
+  onPlanningStoriesComplete: (callback: (projectId: string, count: number) => void) => IpcListenerCleanup;
+  onPlanningStoriesError: (callback: (projectId: string, error: string) => void) => IpcListenerCleanup;
+
+  // Story to task conversion (Story 3.3)
+  convertStoryToTask: (projectId: string, storyId: string) => Promise<IPCResult<StoryConversionResult>>;
+  convertStoriesToTasks: (projectId: string, storyIds: string[]) => Promise<IPCResult<StoryConversionResult[]>>;
+  checkStoryDuplicate: (projectId: string, storyId: string) => Promise<IPCResult<{ isDuplicate: boolean; existingTaskId?: string }>>;
 }
 
 /**
@@ -115,5 +136,41 @@ export const createPlanningAPI = (): PlanningAPI => ({
     invokeIpc(IPC_CHANNELS.PLANNING_GIT_HISTORY, projectId),
 
   viewArtifactAtCheckpoint: (projectId: string, commitHash: string, artifactPath: string): Promise<IPCResult<string>> =>
-    invokeIpc(IPC_CHANNELS.PLANNING_GIT_VIEW, projectId, commitHash, artifactPath)
+    invokeIpc(IPC_CHANNELS.PLANNING_GIT_VIEW, projectId, commitHash, artifactPath),
+
+  // Story operations (Story 3.1, 3.2)
+  listPlanningStories: (projectId: string): Promise<IPCResult<StorySummary[]>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORIES_LIST, projectId),
+
+  generatePlanningStories: (projectId: string): void =>
+    sendIpc(IPC_CHANNELS.PLANNING_STORIES_GENERATE, projectId),
+
+  loadPlanningStory: (projectId: string, storyId: string): Promise<IPCResult<Story>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORY_LOAD, projectId, storyId),
+
+  updatePlanningStory: (projectId: string, storyId: string, content: string): Promise<IPCResult<Story>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORY_UPDATE, projectId, storyId, content),
+
+  setStoryStatus: (projectId: string, storyId: string, status: StoryStatus): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORY_SET_STATUS, projectId, storyId, status),
+
+  // Story generation events (Story 3.1)
+  onPlanningStoriesProgress: (callback: (projectId: string, progress: { current: number; total: number; storyTitle: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_STORIES_PROGRESS, callback),
+
+  onPlanningStoriesComplete: (callback: (projectId: string, count: number) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_STORIES_COMPLETE, callback),
+
+  onPlanningStoriesError: (callback: (projectId: string, error: string) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.PLANNING_STORIES_ERROR, callback),
+
+  // Story to task conversion (Story 3.3)
+  convertStoryToTask: (projectId: string, storyId: string): Promise<IPCResult<StoryConversionResult>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORY_CONVERT, projectId, storyId),
+
+  convertStoriesToTasks: (projectId: string, storyIds: string[]): Promise<IPCResult<StoryConversionResult[]>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORIES_CONVERT_ALL, projectId, storyIds),
+
+  checkStoryDuplicate: (projectId: string, storyId: string): Promise<IPCResult<{ isDuplicate: boolean; existingTaskId?: string }>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_STORY_CHECK_DUPLICATE, projectId, storyId)
 });
