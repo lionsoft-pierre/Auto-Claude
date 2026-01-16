@@ -1,0 +1,55 @@
+# BMM Workflow Status Tracking
+# This file tracks the progress of BMAD BMM workflows for this project
+
+project_name: Auto-Claude
+feature_name: Planning Mode
+
+# Workflow Completion Status
+workflows:
+  product-brief:
+    status: complete
+    completed_at: 2026-01-15
+    output_file: product-brief-Auto-Claude-2026-01-15.md
+    steps_completed: [1, 2, 3, 4, 5, 6]
+
+  prd:
+    status: complete
+    completed_at: 2026-01-15
+    output_file: prd.md
+    steps_completed: [1, 2, 3, 4, 7, 8, 9, 10, 11]
+    functional_requirements: 46
+    non_functional_requirements: 24
+
+  architecture:
+    status: complete
+    completed_at: 2026-01-15
+    output_file: architecture.md
+    steps_completed: [1, 2, 3, 4, 5, 6, 7, 8]
+    decisions_made: 6
+    patterns_defined: 6
+
+  epics-and-stories:
+    status: complete
+    completed_at: 2026-01-15
+    output_file: epics.md
+    epic_count: 6
+    story_count: 24
+    steps_completed: [1, 2, 3, 4]
+
+  project-context:
+    status: complete
+    completed_at: 2026-01-15
+    output_file: project-context.md
+    rule_count: 45
+
+# Next Recommended Workflow
+next_recommended: sprint-planning
+
+# Notes
+notes: |
+  Product Brief completed through collaborative discovery.
+  Key insights:
+  - Story Independence Principle for parallel execution
+  - Sprint Queue Model with auto-pickup
+  - 80-90% test coverage target
+  - "Clarity test" for story readiness
