@@ -333,6 +333,7 @@ const browserMockAPI: ElectronAPI = {
     success: true,
     data: {
       id: `session-${Date.now()}`,
+      projectId,
       projectName,
       methodology,
       status: 'idle' as const,
@@ -359,7 +360,13 @@ const browserMockAPI: ElectronAPI = {
     console.warn('[Browser Mock] sendPlanningMessage called', { projectId, sessionId, message });
   },
   onPlanningChatStream: () => () => {},
-  onPlanningChatError: () => () => {}
+  onPlanningChatError: () => () => {},
+
+  // Planning Session Management (Story 1.3)
+  listPlanningSessions: async () => ({
+    success: true,
+    data: []
+  })
 };
 
 /**

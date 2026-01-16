@@ -1,9 +1,9 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { IPC_CHANNELS } from '../../shared/constants';
-import type { IPCResult, PlanningSession, Methodology, PlanningStreamChunk } from '../../shared/types';
+import type { IPCResult, PlanningSession, PlanningSessionSummary, Methodology, PlanningStreamChunk } from '../../shared/types';
 import { projectStore } from '../project-store';
 
 /**
@@ -62,6 +62,7 @@ export function registerPlanningHandlers(): void {
         const now = new Date().toISOString();
         const session: PlanningSession = {
           id: randomUUID(),
+          projectId,
           projectName,
           methodology,
           status: 'idle',
@@ -110,6 +111,11 @@ export function registerPlanningHandlers(): void {
         // Ensure messages array exists (for backward compatibility)
         if (!session.messages) {
           session.messages = [];
+        }
+
+        // Ensure projectId exists (for backward compatibility with Story 1.3)
+        if (!session.projectId) {
+          session.projectId = projectId;
         }
 
         return { success: true, data: session };
@@ -212,6 +218,58 @@ export function registerPlanningHandlers(): void {
           projectId,
           error instanceof Error ? error.message : 'Failed to process message'
         );
+      }
+    }
+  );
+
+  // List all planning sessions across all projects (Story 1.3)
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SESSIONS_LIST,
+    async (): Promise<IPCResult<PlanningSessionSummary[]>> => {
+      try {
+        const projects = projectStore.getProjects();
+        const sessions: PlanningSessionSummary[] = [];
+
+        for (const project of projects) {
+          const sessionPath = getSessionFilePath(project.path);
+
+          if (existsSync(sessionPath)) {
+            try {
+              const content = readFileSync(sessionPath, 'utf-8');
+              const session = JSON.parse(content) as PlanningSession;
+
+              // Create summary with essential fields
+              const summary: PlanningSessionSummary = {
+                id: session.id,
+                projectId: session.projectId || project.id,
+                projectName: session.projectName,
+                methodology: session.methodology,
+                status: session.status,
+                createdAt: session.createdAt,
+                updatedAt: session.updatedAt,
+                currentWorkflow: session.currentWorkflow,
+                messageCount: session.messages?.length || 0
+              };
+
+              sessions.push(summary);
+            } catch {
+              // Skip corrupted session files
+              continue;
+            }
+          }
+        }
+
+        // Sort by updatedAt descending (most recent first)
+        sessions.sort((a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+
+        return { success: true, data: sessions };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list planning sessions'
+        };
       }
     }
   );

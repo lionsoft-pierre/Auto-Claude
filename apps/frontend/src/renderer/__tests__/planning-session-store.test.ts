@@ -21,6 +21,7 @@ function createTestSession(overrides: Partial<PlanningSession> = {}): PlanningSe
   const now = new Date().toISOString();
   return {
     id: `session-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    projectId: `project-${Date.now()}`,
     projectName: 'Test Project',
     methodology: 'bmad' as Methodology,
     status: 'idle' as SessionStatus,
@@ -54,6 +55,9 @@ describe('Planning Session Store', () => {
       session: null,
       isLoading: false,
       error: null,
+      isDirty: false,
+      lastSavedAt: null,
+      isSaving: false,
       chatStatus: { phase: 'idle', message: '' },
       streamingContent: ''
     });
@@ -536,6 +540,100 @@ describe('Planning Session Store', () => {
       expect(chatStatus.phase).toBe('idle');
       expect(chatStatus.message).toBe('');
       expect(streamingContent).toBe('');
+    });
+  });
+
+  describe('Persistence State (Story 1.3)', () => {
+    describe('Initial persistence state', () => {
+      it('should have isDirty false initially', () => {
+        expect(useSessionStore.getState().isDirty).toBe(false);
+      });
+
+      it('should have lastSavedAt null initially', () => {
+        expect(useSessionStore.getState().lastSavedAt).toBeNull();
+      });
+
+      it('should have isSaving false initially', () => {
+        expect(useSessionStore.getState().isSaving).toBe(false);
+      });
+    });
+
+    describe('markDirty', () => {
+      it('should mark session as dirty', () => {
+        useSessionStore.getState().markDirty();
+
+        expect(useSessionStore.getState().isDirty).toBe(true);
+      });
+
+      it('should preserve existing state when marking dirty', () => {
+        const session = createTestSession();
+        useSessionStore.setState({ session, isDirty: false });
+
+        useSessionStore.getState().markDirty();
+
+        expect(useSessionStore.getState().session).toEqual(session);
+        expect(useSessionStore.getState().isDirty).toBe(true);
+      });
+    });
+
+    describe('State modifications should mark dirty', () => {
+      it('should mark dirty when updating session status', () => {
+        const session = createTestSession({ status: 'idle' });
+        useSessionStore.setState({ session, isDirty: false });
+
+        useSessionStore.getState().updateSessionStatus('in_progress');
+
+        expect(useSessionStore.getState().isDirty).toBe(true);
+      });
+
+      it('should mark dirty when advancing workflow', () => {
+        const session = createTestSession({
+          currentWorkflow: 'brief',
+          completedWorkflows: []
+        });
+        useSessionStore.setState({ session, isDirty: false });
+
+        useSessionStore.getState().advanceWorkflow('brief', 'prd');
+
+        expect(useSessionStore.getState().isDirty).toBe(true);
+      });
+
+      it('should mark dirty when adding message', () => {
+        const session = createTestSession({ messages: [] });
+        useSessionStore.setState({ session, isDirty: false });
+
+        const message = createTestMessage();
+        useSessionStore.getState().addMessage(message);
+
+        expect(useSessionStore.getState().isDirty).toBe(true);
+      });
+
+      it('should mark dirty when finalizing streaming message', () => {
+        const session = createTestSession({ messages: [] });
+        useSessionStore.setState({ session, isDirty: false, streamingContent: 'Test content' });
+
+        useSessionStore.getState().finalizeStreamingMessage();
+
+        expect(useSessionStore.getState().isDirty).toBe(true);
+      });
+    });
+
+    describe('clearSession with persistence state', () => {
+      it('should reset isDirty when clearing session', () => {
+        useSessionStore.setState({
+          session: createTestSession(),
+          isDirty: true,
+          lastSavedAt: new Date().toISOString(),
+          isSaving: false
+        });
+
+        useSessionStore.getState().clearSession();
+
+        const { isDirty, lastSavedAt, isSaving } = useSessionStore.getState();
+        expect(isDirty).toBe(false);
+        expect(lastSavedAt).toBeNull();
+        expect(isSaving).toBe(false);
+      });
     });
   });
 });

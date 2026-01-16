@@ -532,5 +532,8 @@ export const IPC_CHANNELS = {
   // Planning chat operations (Story 1.2)
   PLANNING_CHAT_SEND: 'planning:chat:send',
   PLANNING_CHAT_STREAM: 'planning:chat:stream',
-  PLANNING_CHAT_ERROR: 'planning:chat:error'
+  PLANNING_CHAT_ERROR: 'planning:chat:error',
+
+  // Planning session management (Story 1.3)
+  PLANNING_SESSIONS_LIST: 'planning:sessions:list'
 } as const;

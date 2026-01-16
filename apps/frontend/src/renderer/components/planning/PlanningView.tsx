@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ClipboardList, Plus, Loader2 } from 'lucide-react';
+import { ClipboardList, Plus, Loader2, Save } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { MethodologySelector } from './MethodologySelector';
 import { PlanningChat } from './PlanningChat';
+import { useToast } from '../../hooks/use-toast';
 import {
   useSessionStore,
   type Methodology
@@ -17,13 +18,19 @@ interface PlanningViewProps {
 
 export function PlanningView({ projectId }: PlanningViewProps) {
   const { t } = useTranslation(['planning', 'common']);
+  const { toast } = useToast();
 
   // Session store
   const session = useSessionStore((state) => state.session);
   const isLoading = useSessionStore((state) => state.isLoading);
   const error = useSessionStore((state) => state.error);
+  const isDirty = useSessionStore((state) => state.isDirty);
+  const isSaving = useSessionStore((state) => state.isSaving);
   const loadSession = useSessionStore((state) => state.loadSession);
   const createSession = useSessionStore((state) => state.createSession);
+  const saveSession = useSessionStore((state) => state.saveSession);
+  const startAutoSave = useSessionStore((state) => state.startAutoSave);
+  const stopAutoSave = useSessionStore((state) => state.stopAutoSave);
 
   // Project store
   const projects = useProjectStore((state) => state.projects);
@@ -38,6 +45,16 @@ export function PlanningView({ projectId }: PlanningViewProps) {
     loadSession(projectId);
   }, [projectId, loadSession]);
 
+  // Start/stop auto-save when session changes (Story 1.3)
+  useEffect(() => {
+    if (session) {
+      startAutoSave();
+    }
+    return () => {
+      stopAutoSave();
+    };
+  }, [session, startAutoSave, stopAutoSave]);
+
   // Handle methodology selection
   const handleMethodologySelect = async (methodology: Methodology) => {
     await createSession(projectId, projectName, methodology);
@@ -47,6 +64,23 @@ export function PlanningView({ projectId }: PlanningViewProps) {
   // Handle new session click
   const handleNewSession = () => {
     setShowMethodologySelector(true);
+  };
+
+  // Handle manual save (Story 1.3)
+  const handleSave = async () => {
+    const success = await saveSession(false);
+    if (success) {
+      toast({
+        title: t('planning:session.saved'),
+        duration: 2000
+      });
+    } else {
+      toast({
+        title: t('planning:errors.saveFailed'),
+        variant: 'destructive',
+        duration: 3000
+      });
+    }
   };
 
   // Loading state
@@ -110,6 +144,21 @@ export function PlanningView({ projectId }: PlanningViewProps) {
                 </p>
               </div>
             </div>
+            {/* Save button (Story 1.3) */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSave}
+              disabled={isSaving || !isDirty}
+              className="gap-2"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {t('planning:saveSession')}
+            </Button>
           </div>
         </div>
 

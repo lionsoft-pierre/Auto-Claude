@@ -1,6 +1,7 @@
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type {
   PlanningSession,
+  PlanningSessionSummary,
   Methodology,
   PlanningStreamChunk,
   IPCResult
@@ -20,6 +21,9 @@ export interface PlanningAPI {
   sendPlanningMessage: (projectId: string, sessionId: string, message: string) => void;
   onPlanningChatStream: (callback: (projectId: string, chunk: PlanningStreamChunk) => void) => IpcListenerCleanup;
   onPlanningChatError: (callback: (projectId: string, error: string) => void) => IpcListenerCleanup;
+
+  // Session management (Story 1.3)
+  listPlanningSessions: () => Promise<IPCResult<PlanningSessionSummary[]>>;
 }
 
 /**
@@ -44,5 +48,9 @@ export const createPlanningAPI = (): PlanningAPI => ({
     createIpcListener(IPC_CHANNELS.PLANNING_CHAT_STREAM, callback),
 
   onPlanningChatError: (callback: (projectId: string, error: string) => void): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.PLANNING_CHAT_ERROR, callback)
+    createIpcListener(IPC_CHANNELS.PLANNING_CHAT_ERROR, callback),
+
+  // Session management (Story 1.3)
+  listPlanningSessions: (): Promise<IPCResult<PlanningSessionSummary[]>> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SESSIONS_LIST)
 });

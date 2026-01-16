@@ -106,6 +106,7 @@ import type {
 } from './roadmap';
 import type {
   PlanningSession,
+  PlanningSessionSummary,
   Methodology,
   PlanningStreamChunk
 } from './planning';
@@ -815,6 +816,9 @@ export interface ElectronAPI {
   sendPlanningMessage: (projectId: string, sessionId: string, message: string) => void;
   onPlanningChatStream: (callback: (projectId: string, chunk: PlanningStreamChunk) => void) => () => void;
   onPlanningChatError: (callback: (projectId: string, error: string) => void) => () => void;
+
+  // Planning session management (Story 1.3)
+  listPlanningSessions: () => Promise<IPCResult<PlanningSessionSummary[]>>;
 }
 
 declare global {

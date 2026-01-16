@@ -2,6 +2,7 @@
   "title": "Planning Mode",
   "newSession": "New Planning Session",
   "resumeSession": "Resume Session",
+  "saveSession": "Save",
   "selectMethodology": "Select a Methodology",
   "startPlanning": "Start Planning",
   "noActiveSession": "No active planning session",
@@ -33,7 +34,24 @@
   "errors": {
     "loadFailed": "Failed to load session",
     "saveFailed": "Failed to save session",
-    "createFailed": "Failed to create session"
+    "createFailed": "Failed to create session",
+    "listFailed": "Failed to load session list"
+  },
+  "sessionSelector": {
+    "title": "Planning Sessions",
+    "empty": "No planning sessions found",
+    "emptyDescription": "Start a new planning session to begin.",
+    "lastUpdated": "Last updated",
+    "messages": "{{count}} messages",
+    "selectSession": "Select a session to continue",
+    "newSession": "New Session"
+  },
+  "recovery": {
+    "title": "Resume Previous Session?",
+    "description": "You have an in-progress planning session that was interrupted.",
+    "resume": "Resume Session",
+    "discard": "Discard",
+    "discardConfirm": "Are you sure you want to discard this session? This action cannot be undone."
   },
   "chat": {
     "startConversation": "Start a Conversation",

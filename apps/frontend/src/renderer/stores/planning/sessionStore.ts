@@ -4,6 +4,7 @@ import type {
   SessionStatus,
   WorkflowStep,
   PlanningSession,
+  PlanningSessionSummary,
   PlanningChatMessage,
   PlanningChatStatus,
   PlanningChatPhase,
@@ -16,11 +17,15 @@ export type {
   SessionStatus,
   WorkflowStep,
   PlanningSession,
+  PlanningSessionSummary,
   PlanningChatMessage,
   PlanningChatStatus,
   PlanningChatPhase,
   PlanningStreamChunk
 };
+
+// Auto-save interval in milliseconds (30 seconds per NFR8)
+const AUTO_SAVE_INTERVAL = 30000;
 
 /**
  * Initial chat status
@@ -39,6 +44,11 @@ interface SessionState {
   isLoading: boolean;
   error: string | null;
 
+  // Persistence state (Story 1.3)
+  isDirty: boolean;
+  lastSavedAt: string | null;
+  isSaving: boolean;
+
   // Chat state
   chatStatus: PlanningChatStatus;
   streamingContent: string;
@@ -49,10 +59,15 @@ interface SessionState {
   setError: (error: string | null) => void;
   createSession: (projectId: string, projectName: string, methodology: Methodology) => Promise<void>;
   loadSession: (projectId: string) => Promise<void>;
-  saveSession: () => Promise<void>;
+  saveSession: (silent?: boolean) => Promise<boolean>;
   clearSession: () => void;
   updateSessionStatus: (status: SessionStatus) => void;
   advanceWorkflow: (completedWorkflow: WorkflowStep, nextWorkflow: WorkflowStep | null) => void;
+
+  // Persistence actions (Story 1.3)
+  markDirty: () => void;
+  startAutoSave: () => void;
+  stopAutoSave: () => void;
 
   // Chat actions
   setChatStatus: (status: PlanningChatStatus) => void;
@@ -62,11 +77,17 @@ interface SessionState {
   finalizeStreamingMessage: () => void;
 }
 
+// Auto-save timer reference (module-level to persist across renders)
+let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   // Initial state
   session: null,
   isLoading: false,
   error: null,
+  isDirty: false,
+  lastSavedAt: null,
+  isSaving: false,
   chatStatus: initialChatStatus,
   streamingContent: '',
 
@@ -116,29 +137,58 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  saveSession: async () => {
-    const { session } = get();
-    if (!session) return;
+  saveSession: async (silent = false): Promise<boolean> => {
+    const { session, isSaving } = get();
+    if (!session || isSaving) return false;
+
+    set({ isSaving: true });
 
     try {
       const result = await window.electronAPI.savePlanningSession(session);
 
-      if (!result.success) {
-        set({ error: result.error || 'Failed to save session' });
+      if (result.success) {
+        const now = new Date().toISOString();
+        set({
+          isDirty: false,
+          lastSavedAt: now,
+          isSaving: false,
+          error: null
+        });
+        return true;
+      } else {
+        if (!silent) {
+          set({ error: result.error || 'Failed to save session', isSaving: false });
+        } else {
+          set({ isSaving: false });
+        }
+        return false;
       }
     } catch (err) {
-      set({
-        error: err instanceof Error ? err.message : 'Failed to save session'
-      });
+      if (!silent) {
+        set({
+          error: err instanceof Error ? err.message : 'Failed to save session',
+          isSaving: false
+        });
+      } else {
+        set({ isSaving: false });
+      }
+      return false;
     }
   },
 
-  clearSession: () => set({
-    session: null,
-    error: null,
-    chatStatus: initialChatStatus,
-    streamingContent: ''
-  }),
+  clearSession: () => {
+    // Stop auto-save when clearing session
+    get().stopAutoSave();
+    set({
+      session: null,
+      error: null,
+      isDirty: false,
+      lastSavedAt: null,
+      isSaving: false,
+      chatStatus: initialChatStatus,
+      streamingContent: ''
+    });
+  },
 
   updateSessionStatus: (status: SessionStatus) => {
     const { session } = get();
@@ -149,7 +199,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         ...session,
         status,
         updatedAt: new Date().toISOString()
-      }
+      },
+      isDirty: true
     });
   },
 
@@ -168,8 +219,35 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         currentWorkflow: nextWorkflow,
         currentStep: session.currentStep + 1,
         updatedAt: new Date().toISOString()
-      }
+      },
+      isDirty: true
     });
+  },
+
+  // Persistence actions (Story 1.3)
+  markDirty: () => set({ isDirty: true }),
+
+  startAutoSave: () => {
+    // Clear existing timer if any
+    if (autoSaveTimer) {
+      clearInterval(autoSaveTimer);
+    }
+
+    // Start new auto-save interval
+    autoSaveTimer = setInterval(() => {
+      const state = get();
+      if (state.session && state.isDirty && !state.isSaving) {
+        // Silent auto-save - don't show errors in UI
+        state.saveSession(true);
+      }
+    }, AUTO_SAVE_INTERVAL);
+  },
+
+  stopAutoSave: () => {
+    if (autoSaveTimer) {
+      clearInterval(autoSaveTimer);
+      autoSaveTimer = null;
+    }
   },
 
   // Chat actions
@@ -184,7 +262,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           ...state.session,
           messages: [...state.session.messages, message],
           updatedAt: new Date().toISOString()
-        }
+        },
+        isDirty: true
       };
     }),
 
@@ -212,6 +291,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
       return {
         streamingContent: '',
+        isDirty: true,
         session: {
           ...state.session,
           messages: [...state.session.messages, newMessage],
@@ -230,6 +310,18 @@ export async function checkSessionExists(projectId: string): Promise<boolean> {
     return result.success && result.data !== null;
   } catch {
     return false;
+  }
+}
+
+/**
+ * List all planning sessions across all projects (Story 1.3)
+ */
+export async function listPlanningSessions(): Promise<PlanningSessionSummary[]> {
+  try {
+    const result = await window.electronAPI.listPlanningSessions();
+    return result.success && result.data ? result.data : [];
+  } catch {
+    return [];
   }
 }
 

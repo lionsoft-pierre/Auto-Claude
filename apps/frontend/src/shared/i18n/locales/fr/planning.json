@@ -2,6 +2,7 @@
   "title": "Mode Planification",
   "newSession": "Nouvelle session de planification",
   "resumeSession": "Reprendre la session",
+  "saveSession": "Enregistrer",
   "selectMethodology": "Sélectionner une méthodologie",
   "startPlanning": "Commencer la planification",
   "noActiveSession": "Aucune session de planification active",
@@ -33,7 +34,24 @@
   "errors": {
     "loadFailed": "Échec du chargement de la session",
     "saveFailed": "Échec de la sauvegarde de la session",
-    "createFailed": "Échec de la création de la session"
+    "createFailed": "Échec de la création de la session",
+    "listFailed": "Échec du chargement de la liste des sessions"
+  },
+  "sessionSelector": {
+    "title": "Sessions de planification",
+    "empty": "Aucune session de planification trouvée",
+    "emptyDescription": "Commencez une nouvelle session de planification.",
+    "lastUpdated": "Dernière mise à jour",
+    "messages": "{{count}} messages",
+    "selectSession": "Sélectionnez une session pour continuer",
+    "newSession": "Nouvelle session"
+  },
+  "recovery": {
+    "title": "Reprendre la session précédente ?",
+    "description": "Vous avez une session de planification en cours qui a été interrompue.",
+    "resume": "Reprendre la session",
+    "discard": "Abandonner",
+    "discardConfirm": "Êtes-vous sûr de vouloir abandonner cette session ? Cette action est irréversible."
   },
   "chat": {
     "startConversation": "Commencer une conversation",

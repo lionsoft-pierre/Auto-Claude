@@ -60,6 +60,7 @@ export interface PlanningStreamChunk {
  */
 export interface PlanningSession {
   id: string;
+  projectId: string;
   projectName: string;
   methodology: Methodology;
   status: SessionStatus;
@@ -71,4 +72,19 @@ export interface PlanningSession {
   artifacts: Record<string, string>;
   context: Record<string, unknown>;
   messages: PlanningChatMessage[];
+}
+
+/**
+ * Summary of a planning session for listing (Story 1.3)
+ */
+export interface PlanningSessionSummary {
+  id: string;
+  projectId: string;
+  projectName: string;
+  methodology: Methodology;
+  status: SessionStatus;
+  createdAt: string;
+  updatedAt: string;
+  currentWorkflow: WorkflowStep | null;
+  messageCount: number;
 }
