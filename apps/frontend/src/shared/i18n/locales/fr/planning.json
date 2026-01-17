@@ -37,7 +37,8 @@
     "ariaLabel": "Progression du workflow de planification",
     "completed": "Terminé",
     "current": "En cours",
-    "upcoming": "À venir"
+    "upcoming": "À venir",
+    "markComplete": "Marquer comme terminé"
   },
   "status": {
     "idle": "Prêt",

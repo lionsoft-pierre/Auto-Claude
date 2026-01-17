@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { Check, Lightbulb, FileText, Boxes, Layers, BookOpen, ChevronRight } from 'lucide-react';
+import { Check, CheckCircle2, Lightbulb, FileText, Boxes, Layers, BookOpen, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSessionStore } from '../../stores/planning/sessionStore';
+import { Button } from '../ui/button';
 import type { WorkflowStep, WorkflowStepStatus, PlanningSession } from '../../../shared/types/planning';
 import type { LucideIcon } from 'lucide-react';
 
@@ -62,36 +63,55 @@ interface WorkflowStepItemProps {
   step: WorkflowStepConfig;
   status: WorkflowStepStatus;
   onClick?: () => void;
+  onMarkComplete?: () => void;
   isClickable?: boolean;
+  isCurrent?: boolean;
 }
 
-function WorkflowStepItem({ step, status, onClick, isClickable = false }: WorkflowStepItemProps) {
+function WorkflowStepItem({ step, status, onClick, onMarkComplete, isClickable = false, isCurrent = false }: WorkflowStepItemProps) {
   const { t } = useTranslation(['planning']);
   const Icon = step.icon;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!isClickable}
-      className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all duration-300',
-        status === 'completed' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-        status === 'current' && 'bg-primary/10 text-primary font-medium ring-2 ring-primary/20',
-        status === 'upcoming' && 'bg-muted text-muted-foreground opacity-60',
-        isClickable && 'cursor-pointer hover:ring-2 hover:ring-primary/40',
-        !isClickable && 'cursor-default'
+    <div className="flex items-center gap-1 group">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!isClickable}
+        className={cn(
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all duration-300',
+          status === 'completed' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+          status === 'current' && 'bg-primary/10 text-primary font-medium ring-2 ring-primary/20',
+          status === 'upcoming' && 'bg-muted text-muted-foreground opacity-60',
+          isClickable && 'cursor-pointer hover:ring-2 hover:ring-primary/40',
+          !isClickable && 'cursor-default'
+        )}
+        aria-current={status === 'current' ? 'step' : undefined}
+        aria-label={`${t(step.labelKey)} - ${t(`planning:progress.${status}`)}`}
+      >
+        {status === 'completed' ? (
+          <Check className="h-4 w-4 transition-transform duration-300" />
+        ) : (
+          <Icon className="h-4 w-4" />
+        )}
+        <span className="hidden sm:inline">{t(step.labelKey)}</span>
+      </button>
+      {/* Mark Complete button - visible on hover for current step */}
+      {isCurrent && status !== 'completed' && onMarkComplete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMarkComplete();
+          }}
+          title={t('planning:progress.markComplete')}
+        >
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+        </Button>
       )}
-      aria-current={status === 'current' ? 'step' : undefined}
-      aria-label={`${t(step.labelKey)} - ${t(`planning:progress.${status}`)}`}
-    >
-      {status === 'completed' ? (
-        <Check className="h-4 w-4 transition-transform duration-300" />
-      ) : (
-        <Icon className="h-4 w-4" />
-      )}
-      <span className="hidden sm:inline">{t(step.labelKey)}</span>
-    </button>
+    </div>
   );
 }
 
@@ -106,6 +126,8 @@ export function WorkflowProgress({ projectId }: WorkflowProgressProps) {
   const { t } = useTranslation(['planning']);
   const session = useSessionStore((state) => state.session);
   const startWorkflow = useSessionStore((state) => state.startWorkflow);
+  const markWorkflowComplete = useSessionStore((state) => state.markWorkflowComplete);
+  const saveSession = useSessionStore((state) => state.saveSession);
   const progress = deriveWorkflowProgress(session);
 
   const handleStepClick = async (stepId: WorkflowStep) => {
@@ -115,6 +137,12 @@ export function WorkflowProgress({ projectId }: WorkflowProgressProps) {
     if (session.currentWorkflow === stepId) return;
 
     await startWorkflow(projectId, stepId);
+  };
+
+  const handleMarkComplete = async (stepId: WorkflowStep) => {
+    markWorkflowComplete(stepId);
+    // Save session after marking complete
+    await saveSession(true);
   };
 
   // Determine which steps are clickable (completed or current, not upcoming)
@@ -136,6 +164,7 @@ export function WorkflowProgress({ projectId }: WorkflowProgressProps) {
       {BMAD_WORKFLOW_STEPS.map((step, index) => {
         const status = progress.get(step.id) ?? 'upcoming';
         const clickable = isStepClickable(step.id);
+        const isCurrent = status === 'current';
         return (
           <div key={step.id} className="flex items-center">
             {index > 0 && (
@@ -152,7 +181,9 @@ export function WorkflowProgress({ projectId }: WorkflowProgressProps) {
               step={step}
               status={status}
               onClick={() => handleStepClick(step.id)}
+              onMarkComplete={() => handleMarkComplete(step.id)}
               isClickable={clickable}
+              isCurrent={isCurrent}
             />
           </div>
         );

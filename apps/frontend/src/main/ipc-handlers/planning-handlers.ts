@@ -838,27 +838,60 @@ export function registerPlanningHandlers(): void {
 
       try {
         const planningDir = path.join(project.path, '.auto-claude', 'planning');
+        const bmadOutputDir = path.join(project.path, '_bmad-output', 'planning-artifacts');
         const artifacts: ArtifactSummary[] = [];
+        const foundTypes = new Set<string>();
 
-        // Check each artifact type
+        // Helper to add artifact if not already found for this type
+        const addArtifact = (type: string, filePath: string, content: string) => {
+          if (foundTypes.has(type)) return; // Skip if already found
+          const { metadata } = parseFrontmatter(content);
+          artifacts.push({
+            id: metadata.id || randomUUID(),
+            title: metadata.title || ARTIFACT_TITLES[type] || type,
+            type: (type as ArtifactType),
+            status: metadata.status || 'draft',
+            updatedAt: metadata.updatedAt || new Date().toISOString(),
+            filePath
+          });
+          foundTypes.add(type);
+        };
+
+        // 1. Check standard location (.auto-claude/planning/)
         for (const [type, filename] of Object.entries(ARTIFACT_FILENAMES)) {
           const filePath = path.join(planningDir, filename);
           if (existsSync(filePath)) {
             const content = readFileSync(filePath, 'utf-8');
-            const { metadata } = parseFrontmatter(content);
-
-            artifacts.push({
-              id: metadata.id || randomUUID(),
-              title: metadata.title || ARTIFACT_TITLES[type] || type,
-              type: (type as ArtifactType),
-              status: metadata.status || 'draft',
-              updatedAt: metadata.updatedAt || new Date().toISOString(),
-              filePath
-            });
+            addArtifact(type, filePath, content);
           }
         }
 
-        // Check for stories
+        // 2. Check BMAD output directory (_bmad-output/planning-artifacts/)
+        if (existsSync(bmadOutputDir)) {
+          const bmadFiles = readdirSync(bmadOutputDir).filter(f => f.endsWith('.md'));
+
+          // Map artifact type prefixes to types
+          const prefixMap: Record<string, string> = {
+            'product-brief': 'product-brief',
+            'prd': 'prd',
+            'architecture': 'architecture',
+            'epics': 'epics'
+          };
+
+          for (const filename of bmadFiles) {
+            // Match by prefix (e.g., "product-brief-ProjectName-2026-01-15.md")
+            for (const [prefix, type] of Object.entries(prefixMap)) {
+              if (filename.startsWith(prefix + '-') || filename === prefix + '.md') {
+                const filePath = path.join(bmadOutputDir, filename);
+                const content = readFileSync(filePath, 'utf-8');
+                addArtifact(type, filePath, content);
+                break;
+              }
+            }
+          }
+        }
+
+        // 3. Check for stories in standard location
         const storiesDir = path.join(planningDir, 'stories');
         if (existsSync(storiesDir)) {
           const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md'));
@@ -875,6 +908,34 @@ export function registerPlanningHandlers(): void {
               updatedAt: metadata.updatedAt || new Date().toISOString(),
               filePath
             });
+          }
+        }
+
+        // 4. Check for stories in BMAD implementation-artifacts
+        const bmadStoriesDir = path.join(project.path, '_bmad-output', 'implementation-artifacts');
+        if (existsSync(bmadStoriesDir)) {
+          const storyFiles = readdirSync(bmadStoriesDir).filter(f =>
+            f.endsWith('.md') && /^\d+-\d+-/.test(f) // Match pattern like "1-1-story-name.md"
+          );
+          for (const filename of storyFiles) {
+            const filePath = path.join(bmadStoriesDir, filename);
+            const content = readFileSync(filePath, 'utf-8');
+            const { metadata } = parseFrontmatter(content);
+
+            // Don't add duplicates
+            const existingStory = artifacts.find(a =>
+              a.type === 'story' && a.title === (metadata.title || filename.replace('.md', ''))
+            );
+            if (!existingStory) {
+              artifacts.push({
+                id: metadata.id || randomUUID(),
+                title: metadata.title || filename.replace('.md', ''),
+                type: 'story',
+                status: metadata.status || 'draft',
+                updatedAt: metadata.updatedAt || new Date().toISOString(),
+                filePath
+              });
+            }
           }
         }
 
@@ -899,17 +960,34 @@ export function registerPlanningHandlers(): void {
 
       try {
         const planningDir = path.join(project.path, '.auto-claude', 'planning');
+        const bmadOutputDir = path.join(project.path, '_bmad-output', 'planning-artifacts');
+        const bmadStoriesDir = path.join(project.path, '_bmad-output', 'implementation-artifacts');
 
-        // Search for artifact by ID in all files
-        const allFiles = [
-          ...Object.values(ARTIFACT_FILENAMES).map(f => path.join(planningDir, f)),
-        ];
+        // Collect all files to search
+        const allFiles: string[] = [];
 
-        // Add story files
+        // 1. Standard planning location
+        allFiles.push(...Object.values(ARTIFACT_FILENAMES).map(f => path.join(planningDir, f)));
+
+        // 2. Stories in standard location
         const storiesDir = path.join(planningDir, 'stories');
         if (existsSync(storiesDir)) {
           const storyFiles = readdirSync(storiesDir).filter(f => f.endsWith('.md'));
           allFiles.push(...storyFiles.map(f => path.join(storiesDir, f)));
+        }
+
+        // 3. BMAD planning artifacts
+        if (existsSync(bmadOutputDir)) {
+          const bmadFiles = readdirSync(bmadOutputDir).filter(f => f.endsWith('.md'));
+          allFiles.push(...bmadFiles.map(f => path.join(bmadOutputDir, f)));
+        }
+
+        // 4. BMAD implementation artifacts (stories)
+        if (existsSync(bmadStoriesDir)) {
+          const bmadStoryFiles = readdirSync(bmadStoriesDir).filter(f =>
+            f.endsWith('.md') && /^\d+-\d+-/.test(f)
+          );
+          allFiles.push(...bmadStoryFiles.map(f => path.join(bmadStoriesDir, f)));
         }
 
         for (const filePath of allFiles) {

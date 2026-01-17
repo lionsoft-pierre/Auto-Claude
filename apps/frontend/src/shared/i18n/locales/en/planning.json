@@ -37,7 +37,8 @@
     "ariaLabel": "Planning workflow progress",
     "completed": "Completed",
     "current": "In Progress",
-    "upcoming": "Upcoming"
+    "upcoming": "Upcoming",
+    "markComplete": "Mark as complete"
   },
   "status": {
     "idle": "Ready",

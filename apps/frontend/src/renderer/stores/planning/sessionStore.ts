@@ -83,6 +83,7 @@ interface SessionState {
   deleteSession: (projectId: string) => Promise<boolean>;
   updateSessionStatus: (status: SessionStatus) => void;
   advanceWorkflow: (completedWorkflow: WorkflowStep, nextWorkflow: WorkflowStep | null) => void;
+  markWorkflowComplete: (workflowId: WorkflowStep) => void;
 
   // Persistence actions (Story 1.3)
   markDirty: () => void;
@@ -292,6 +293,23 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         completedWorkflows,
         currentWorkflow: nextWorkflow,
         currentStep: session.currentStep + 1,
+        updatedAt: new Date().toISOString()
+      },
+      isDirty: true
+    });
+  },
+
+  markWorkflowComplete: (workflowId: WorkflowStep) => {
+    const { session } = get();
+    if (!session) return;
+
+    // Skip if already completed
+    if (session.completedWorkflows.includes(workflowId)) return;
+
+    set({
+      session: {
+        ...session,
+        completedWorkflows: [...session.completedWorkflows, workflowId],
         updatedAt: new Date().toISOString()
       },
       isDirty: true
