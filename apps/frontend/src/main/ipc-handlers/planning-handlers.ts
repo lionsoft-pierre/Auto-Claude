@@ -2,7 +2,12 @@ import { ipcMain, BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, renameSync, unlinkSync } from 'fs';
 import { randomUUID } from 'crypto';
-import { execSync } from 'child_process';
+import { execSync, spawn, ChildProcess } from 'child_process';
+import os from 'os';
+import { getConfiguredPythonPath } from '../python-env-manager';
+import { getEffectiveSourcePath } from '../updater/path-resolver';
+import { getAugmentedEnv } from '../env-utils';
+import { getProfileEnv } from '../rate-limit-detector';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   IPCResult,
@@ -393,10 +398,11 @@ export function registerPlanningHandlers(): void {
     }
   );
 
-  // Handle chat message send (Story 1.2)
-  // This handler receives messages and will spawn a backend process
-  // For now, we implement a placeholder that echoes back
-  // TODO: Task 4 will implement the actual backend planning process
+  // Handle chat message send (Story 1.2 + Story 7.1)
+  // Spawns the planning_runner.py backend to execute BMAD workflows
+  // Track active planning processes per project
+  const activePlanningProcesses = new Map<string, ChildProcess>();
+
   ipcMain.on(
     IPC_CHANNELS.PLANNING_CHAT_SEND,
     async (_, projectId: string, sessionId: string, message: string) => {
@@ -407,25 +413,161 @@ export function registerPlanningHandlers(): void {
       }
 
       try {
-        // TODO: In Task 4, this will spawn the backend planning process
-        // For now, send a placeholder response to test the streaming infrastructure
-        const placeholderResponse = `I received your message: "${message}"\n\nThe backend planning process integration will be implemented in a future update. For now, this is a placeholder response to verify the chat infrastructure is working correctly.\n\nSession ID: ${sessionId}`;
-
-        // Simulate streaming by sending chunks
-        const words = placeholderResponse.split(' ');
-        for (let i = 0; i < words.length; i++) {
-          const chunk: PlanningStreamChunk = {
-            type: 'text',
-            content: (i > 0 ? ' ' : '') + words[i]
-          };
-          sendStreamChunk(projectId, chunk);
-
-          // Small delay to simulate streaming
-          await new Promise((resolve) => setTimeout(resolve, 30));
+        // Get backend source path
+        const autoBuildSource = getEffectiveSourcePath();
+        if (!autoBuildSource) {
+          sendChatError(projectId, 'Auto-Claude backend not found');
+          return;
         }
 
-        // Send done signal
-        sendStreamChunk(projectId, { type: 'done' });
+        const runnerPath = path.join(autoBuildSource, 'runners', 'planning_runner.py');
+        if (!existsSync(runnerPath)) {
+          sendChatError(projectId, 'planning_runner.py not found in auto-claude directory');
+          return;
+        }
+
+        // Cancel any existing process for this project
+        const existingProcess = activePlanningProcesses.get(projectId);
+        if (existingProcess) {
+          existingProcess.kill();
+          activePlanningProcesses.delete(projectId);
+        }
+
+        // Load session to get current workflow
+        const sessionPath = getSessionFilePath(project.path);
+        let currentWorkflow = 'product-brief';
+        if (existsSync(sessionPath)) {
+          try {
+            const session = JSON.parse(readFileSync(sessionPath, 'utf-8')) as PlanningSession;
+            currentWorkflow = session.currentWorkflow || 'product-brief';
+          } catch {
+            // Use default workflow
+          }
+        }
+
+        // Write session context to temp file for the runner
+        const sessionContextFile = path.join(
+          os.tmpdir(),
+          `planning-context-${projectId}-${Date.now()}.json`
+        );
+        try {
+          const sessionData = existsSync(sessionPath)
+            ? JSON.parse(readFileSync(sessionPath, 'utf-8'))
+            : {};
+          writeFileSync(sessionContextFile, JSON.stringify(sessionData), 'utf-8');
+        } catch {
+          // Continue without session context
+        }
+
+        // Build command arguments
+        const args = [
+          runnerPath,
+          '--project-dir', project.path,
+          '--message', message,
+          '--workflow', currentWorkflow
+        ];
+
+        if (existsSync(sessionContextFile)) {
+          args.push('--session-file', sessionContextFile);
+        }
+
+        // Get Python path and process environment
+        const pythonPath = getConfiguredPythonPath();
+        const augmentedEnv = getAugmentedEnv();
+        const profileEnv = getProfileEnv();
+
+        const processEnv = {
+          ...augmentedEnv,
+          ...profileEnv,
+          PYTHONUNBUFFERED: '1',
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONUTF8: '1'
+        };
+
+        // Spawn the planning runner
+        const proc = spawn(pythonPath, args, {
+          cwd: autoBuildSource,
+          env: processEnv
+        });
+
+        activePlanningProcesses.set(projectId, proc);
+
+        // Handle stdout - parse markers and stream to frontend
+        proc.stdout?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          const lines = text.split('\n');
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+
+            if (line.startsWith('__PLANNING_STREAM__:')) {
+              // Regular streaming text
+              const content = line.substring('__PLANNING_STREAM__:'.length);
+              sendStreamChunk(projectId, { type: 'text', content: content + '\n' });
+            } else if (line.startsWith('__PLANNING_ARTIFACT__:')) {
+              // Artifact created - parse JSON and notify
+              try {
+                const artifactData = JSON.parse(line.substring('__PLANNING_ARTIFACT__:'.length));
+                // TODO: Emit artifact event to frontend
+                console.log('[Planning] Artifact created:', artifactData);
+              } catch {
+                // Ignore parse errors
+              }
+            } else if (line.startsWith('__PLANNING_WORKFLOW__:')) {
+              // Workflow progress - parse and log
+              try {
+                const progressData = JSON.parse(line.substring('__PLANNING_WORKFLOW__:'.length));
+                console.log('[Planning] Workflow progress:', progressData);
+              } catch {
+                // Ignore parse errors
+              }
+            } else if (line.startsWith('__PLANNING_ERROR__:')) {
+              // Error from runner
+              const errorMsg = line.substring('__PLANNING_ERROR__:'.length);
+              sendChatError(projectId, errorMsg);
+            } else if (line === '__PLANNING_DONE__') {
+              // Completion signal handled by close event
+            } else {
+              // Regular output - stream it
+              sendStreamChunk(projectId, { type: 'text', content: line + '\n' });
+            }
+          }
+        });
+
+        // Handle stderr
+        proc.stderr?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          console.error('[Planning Runner stderr]:', text);
+          // Don't send stderr to user unless it's critical
+        });
+
+        // Handle process completion
+        proc.on('close', (code) => {
+          activePlanningProcesses.delete(projectId);
+
+          // Clean up temp file
+          try {
+            if (existsSync(sessionContextFile)) {
+              unlinkSync(sessionContextFile);
+            }
+          } catch {
+            // Ignore cleanup errors
+          }
+
+          if (code !== 0) {
+            console.error('[Planning] Runner exited with code:', code);
+          }
+
+          // Send done signal
+          sendStreamChunk(projectId, { type: 'done' });
+        });
+
+        // Handle process errors
+        proc.on('error', (error) => {
+          activePlanningProcesses.delete(projectId);
+          sendChatError(projectId, `Failed to start planning process: ${error.message}`);
+        });
+
       } catch (error) {
         sendChatError(
           projectId,
