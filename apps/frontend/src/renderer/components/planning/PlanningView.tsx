@@ -272,7 +272,7 @@ export function PlanningView({ projectId }: PlanningViewProps) {
 
           {/* Workflow Progress Indicator (Story 1.4) */}
           <div className="mt-4">
-            <WorkflowProgress />
+            <WorkflowProgress projectId={projectId} />
           </div>
         </div>
 

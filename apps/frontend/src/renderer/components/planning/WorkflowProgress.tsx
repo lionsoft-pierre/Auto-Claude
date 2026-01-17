@@ -61,19 +61,26 @@ export function deriveWorkflowProgress(session: PlanningSession | null): Map<Wor
 interface WorkflowStepItemProps {
   step: WorkflowStepConfig;
   status: WorkflowStepStatus;
+  onClick?: () => void;
+  isClickable?: boolean;
 }
 
-function WorkflowStepItem({ step, status }: WorkflowStepItemProps) {
+function WorkflowStepItem({ step, status, onClick, isClickable = false }: WorkflowStepItemProps) {
   const { t } = useTranslation(['planning']);
   const Icon = step.icon;
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!isClickable}
       className={cn(
         'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all duration-300',
         status === 'completed' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
         status === 'current' && 'bg-primary/10 text-primary font-medium ring-2 ring-primary/20',
-        status === 'upcoming' && 'bg-muted text-muted-foreground opacity-60'
+        status === 'upcoming' && 'bg-muted text-muted-foreground opacity-60',
+        isClickable && 'cursor-pointer hover:ring-2 hover:ring-primary/40',
+        !isClickable && 'cursor-default'
       )}
       aria-current={status === 'current' ? 'step' : undefined}
       aria-label={`${t(step.labelKey)} - ${t(`planning:progress.${status}`)}`}
@@ -84,17 +91,42 @@ function WorkflowStepItem({ step, status }: WorkflowStepItemProps) {
         <Icon className="h-4 w-4" />
       )}
       <span className="hidden sm:inline">{t(step.labelKey)}</span>
-    </div>
+    </button>
   );
 }
 
 /**
  * Workflow progress indicator showing BMAD methodology steps
  */
-export function WorkflowProgress() {
+interface WorkflowProgressProps {
+  projectId?: string;
+}
+
+export function WorkflowProgress({ projectId }: WorkflowProgressProps) {
   const { t } = useTranslation(['planning']);
   const session = useSessionStore((state) => state.session);
+  const startWorkflow = useSessionStore((state) => state.startWorkflow);
   const progress = deriveWorkflowProgress(session);
+
+  const handleStepClick = async (stepId: WorkflowStep) => {
+    if (!projectId || !session) return;
+
+    // Don't switch if already on this step
+    if (session.currentWorkflow === stepId) return;
+
+    await startWorkflow(projectId, stepId);
+  };
+
+  // Determine which steps are clickable (completed or current, not upcoming)
+  const isStepClickable = (stepId: WorkflowStep): boolean => {
+    if (!projectId || !session) return false;
+    const status = progress.get(stepId);
+    // Allow clicking on completed steps to revisit, and current step
+    // Also allow clicking the next step after current (to advance)
+    const currentIndex = BMAD_WORKFLOW_STEPS.findIndex(s => progress.get(s.id) === 'current');
+    const stepIndex = BMAD_WORKFLOW_STEPS.findIndex(s => s.id === stepId);
+    return status === 'completed' || status === 'current' || stepIndex === currentIndex + 1;
+  };
 
   return (
     <nav
@@ -103,6 +135,7 @@ export function WorkflowProgress() {
     >
       {BMAD_WORKFLOW_STEPS.map((step, index) => {
         const status = progress.get(step.id) ?? 'upcoming';
+        const clickable = isStepClickable(step.id);
         return (
           <div key={step.id} className="flex items-center">
             {index > 0 && (
@@ -115,7 +148,12 @@ export function WorkflowProgress() {
                 )}
               />
             )}
-            <WorkflowStepItem step={step} status={status} />
+            <WorkflowStepItem
+              step={step}
+              status={status}
+              onClick={() => handleStepClick(step.id)}
+              isClickable={clickable}
+            />
           </div>
         );
       })}
