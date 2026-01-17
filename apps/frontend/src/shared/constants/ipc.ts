@@ -536,6 +536,7 @@ export const IPC_CHANNELS = {
 
   // Planning session management (Story 1.3)
   PLANNING_SESSIONS_LIST: 'planning:sessions:list',
+  PLANNING_SESSION_DELETE: 'planning:session:delete',
 
   // Planning workflow operations (Story 2.1)
   PLANNING_WORKFLOW_START: 'planning:workflow:start',

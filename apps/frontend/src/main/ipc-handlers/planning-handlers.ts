@@ -629,6 +629,40 @@ export function registerPlanningHandlers(): void {
     }
   );
 
+  // Delete/discard a planning session
+  ipcMain.handle(
+    IPC_CHANNELS.PLANNING_SESSION_DELETE,
+    async (_, projectId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const sessionPath = getSessionFilePath(project.path);
+
+        if (existsSync(sessionPath)) {
+          // Delete the session file
+          unlinkSync(sessionPath);
+        }
+
+        // Also clean up any active planning processes for this project
+        const activeProcess = activePlanningProcesses.get(projectId);
+        if (activeProcess) {
+          activeProcess.kill();
+          activePlanningProcesses.delete(projectId);
+        }
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to delete planning session'
+        };
+      }
+    }
+  );
+
   // ============================================================
   // Story 2.1: Workflow Execution Handlers
   // ============================================================

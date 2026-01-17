@@ -80,6 +80,7 @@ interface SessionState {
   loadSession: (projectId: string) => Promise<void>;
   saveSession: (silent?: boolean) => Promise<boolean>;
   clearSession: () => void;
+  deleteSession: (projectId: string) => Promise<boolean>;
   updateSessionStatus: (status: SessionStatus) => void;
   advanceWorkflow: (completedWorkflow: WorkflowStep, nextWorkflow: WorkflowStep | null) => void;
 
@@ -226,6 +227,41 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       chatStatus: initialChatStatus,
       streamingContent: ''
     });
+  },
+
+  deleteSession: async (projectId: string): Promise<boolean> => {
+    try {
+      // Stop auto-save first
+      get().stopAutoSave();
+
+      // Call backend to delete the session file
+      const result = await window.electronAPI.deletePlanningSession(projectId);
+
+      if (result.success) {
+        // Clear local state
+        set({
+          session: null,
+          error: null,
+          isDirty: false,
+          lastSavedAt: null,
+          isSaving: false,
+          chatStatus: initialChatStatus,
+          streamingContent: '',
+          workflowStatus: 'idle',
+          reviewState: 'none',
+          pendingArtifact: null,
+          lastCheckpointHash: null,
+          checkpoints: []
+        });
+        return true;
+      } else {
+        set({ error: result.error || 'Failed to delete session' });
+        return false;
+      }
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : 'Failed to delete session' });
+      return false;
+    }
   },
 
   updateSessionStatus: (status: SessionStatus) => {

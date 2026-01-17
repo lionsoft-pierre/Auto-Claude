@@ -367,6 +367,9 @@ const browserMockAPI: ElectronAPI = {
     success: true,
     data: []
   }),
+  deletePlanningSession: async () => ({
+    success: true
+  }),
 
   // Planning Workflow Operations (Story 2.1)
   startPlanningWorkflow: async () => ({

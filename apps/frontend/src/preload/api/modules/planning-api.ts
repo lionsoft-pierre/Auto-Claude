@@ -40,6 +40,7 @@ export interface PlanningAPI {
 
   // Session management (Story 1.3)
   listPlanningSessions: () => Promise<IPCResult<PlanningSessionSummary[]>>;
+  deletePlanningSession: (projectId: string) => Promise<IPCResult>;
 
   // Workflow operations (Story 2.1)
   startPlanningWorkflow: (projectId: string, workflowId: WorkflowStep) => Promise<IPCResult>;
@@ -154,6 +155,9 @@ export const createPlanningAPI = (): PlanningAPI => ({
   // Session management (Story 1.3)
   listPlanningSessions: (): Promise<IPCResult<PlanningSessionSummary[]>> =>
     invokeIpc(IPC_CHANNELS.PLANNING_SESSIONS_LIST),
+
+  deletePlanningSession: (projectId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.PLANNING_SESSION_DELETE, projectId),
 
   // Workflow operations (Story 2.1)
   startPlanningWorkflow: (projectId: string, workflowId: WorkflowStep): Promise<IPCResult> =>

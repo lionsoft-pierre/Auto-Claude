@@ -835,6 +835,7 @@ export interface ElectronAPI {
 
   // Planning session management (Story 1.3)
   listPlanningSessions: () => Promise<IPCResult<PlanningSessionSummary[]>>;
+  deletePlanningSession: (projectId: string) => Promise<IPCResult>;
 
   // Planning workflow operations (Story 2.1)
   startPlanningWorkflow: (projectId: string, workflowId: WorkflowStep) => Promise<IPCResult>;

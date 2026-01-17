@@ -39,12 +39,59 @@ from debug import debug, debug_detailed, debug_error, debug_section
 from phase_config import resolve_model_id
 
 
+# Map workflow IDs to BMAD skill names
+WORKFLOW_TO_SKILL = {
+    "product-brief": "bmad:bmm:workflows:create-product-brief",
+    "prd": "bmad:bmm:workflows:create-prd",
+    "architecture": "bmad:bmm:workflows:create-architecture",
+    "epics": "bmad:bmm:workflows:create-epics-and-stories",
+}
+
+
 def get_bmad_system_prompt(workflow_id: str, project_dir: str, session_context: Optional[dict] = None) -> str:
     """
     Build the BMAD workflow system prompt.
 
-    This provides Claude with instructions for guiding the user through
-    the BMAD planning methodology.
+    This instructs Claude to invoke the appropriate BMAD skill for the workflow.
+    """
+    skill_name = WORKFLOW_TO_SKILL.get(workflow_id, WORKFLOW_TO_SKILL["product-brief"])
+
+    base_prompt = f"""You are helping the user through a BMAD planning workflow.
+
+IMPORTANT: You MUST invoke the BMAD skill to properly guide this conversation.
+
+**Your first action**: Use the Skill tool to invoke: {skill_name}
+
+This will load the proper BMAD workflow with step-by-step instructions that you must follow.
+
+The workflow ID is: {workflow_id}
+Project directory: {project_dir}
+
+After invoking the skill, follow the workflow's instructions exactly:
+- Load and read the workflow.md file completely
+- Execute each step file in sequence
+- Present menus and wait for user input
+- Save progress to output files as directed
+- Never skip steps or optimize the sequence
+
+If the user has already started this workflow, continue from where they left off based on the conversation history."""
+
+    # Add session context if available
+    if session_context:
+        if session_context.get("artifacts"):
+            artifacts_info = "\n\n## Existing Artifacts\nThe following planning artifacts have been created:"
+            for artifact in session_context.get("artifacts", []):
+                artifact_type = artifact.get("type", "unknown")
+                artifact_path = artifact.get("path", "")
+                artifacts_info += f"\n- {artifact_type}: {artifact_path}"
+            base_prompt += artifacts_info
+
+    return base_prompt
+
+
+def get_fallback_system_prompt(workflow_id: str, project_dir: str, session_context: Optional[dict] = None) -> str:
+    """
+    Fallback BMAD workflow prompts when skill invocation is not available.
     """
     workflow_prompts = {
         "product-brief": """You are a skilled Business Analyst helping the user create a Product Brief using the BMAD methodology.
@@ -187,9 +234,11 @@ Current message: {message}"""
                 model=resolve_model_id("sonnet"),  # Use Sonnet for planning
                 system_prompt=system_prompt,
                 allowed_tools=[
-                    "Read",  # Allow reading project files for context
-                    "Glob",  # Allow file searching
-                    "Grep",  # Allow content searching
+                    "Read",   # Allow reading project files for context
+                    "Glob",   # Allow file searching
+                    "Grep",   # Allow content searching
+                    "Skill",  # Allow invoking BMAD workflows and agents
+                    "Write",  # Allow writing output artifacts
                 ],
                 max_turns=30,  # Allow sufficient turns for conversation
                 cwd=str(project_path),
