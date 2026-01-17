@@ -1,6 +1,6 @@
 # Story 5.4: Non-Blocking Failure Handling
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -379,6 +379,34 @@ def _complete_sprint(self, results: dict):
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Date: 2026-01-16
+- Conversation with Pierre continuing Epic 5 implementation
+
 ### Completion Notes List
+- Created RetryPolicy class with exponential backoff and jitter
+- Implemented error classification (transient vs permanent)
+- Created DependencyGraph class for story dependency tracking
+- Implemented dependency parsing from story files
+- Added skip logic for stories with failed dependencies
+- Implemented non-blocking execution loop (NFR7 compliance)
+- Added 'skipped' status to assignment states
+- Created sprint completion with mixed results summary
+- Implemented transient error detection patterns
+
 ### File List
+
+**New Files:**
+- `apps/backend/planning/retry_policy.py` - RetryPolicy class with exponential backoff
+- `apps/backend/planning/error_classifier.py` - classify_error function and patterns
+- `apps/backend/planning/dependency_graph.py` - DependencyGraph class for dependency tracking
+
+**Modified Files:**
+- `apps/backend/planning/sprint_executor.py` - Integrated retry policy, dependency graph, non-blocking loop
+- `apps/backend/planning/__init__.py` - Added new exports
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added retry and skip event handlers
+- `apps/frontend/src/shared/types/planning.ts` - Added RetryEvent, ExecutionAssignmentStatus with 'skipped'
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added retry and skip translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added retry and skip translations (French)

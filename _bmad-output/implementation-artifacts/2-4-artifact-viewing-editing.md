@@ -1,6 +1,6 @@
 # Story 2.4: Artifact Viewing and Editing
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -384,6 +384,33 @@ export const ArtifactEditor: React.FC = () => {
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Commit: 42e71ce9d2edb9ff68dc421bf91e60877915c9b6
+- Date: 2026-01-16
+
 ### Completion Notes List
+- Created ArtifactPanel component for collapsible sidebar artifact list
+- Artifacts sorted by workflow order: Brief → PRD → Architecture → Epics → Stories
+- Status badges with icons: draft (gray circle), in_review (yellow loader), approved (green check)
+- Created ArtifactViewer with markdown rendering and metadata header
+- Created ArtifactEditor with textarea, live preview toggle, and unsaved changes warning
+- Created artifactStore with loadArtifacts, saveArtifact, selectArtifact, editingMode
+- Lazy loading: list shows metadata, content loaded on selection
+- Updated PlanningView layout to include artifact panel toggle
+
 ### File List
+
+**New Files:**
+- `apps/frontend/src/renderer/components/planning/ArtifactPanel.tsx` - Sidebar artifact list with status icons
+- `apps/frontend/src/renderer/components/planning/ArtifactViewer.tsx` - Markdown viewer with edit button
+- `apps/frontend/src/renderer/components/planning/ArtifactEditor.tsx` - Markdown editor with preview and unsaved changes tracking
+- `apps/frontend/src/renderer/stores/planning/artifactStore.ts` - Artifact state management store
+- `apps/frontend/src/renderer/stores/planning/index.ts` - Store exports
+
+**Modified Files:**
+- `apps/frontend/src/renderer/components/planning/PlanningView.tsx` - Added artifact panel integration
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added artifact update IPC handler
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added artifact panel translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added artifact panel translations (French)

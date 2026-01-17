@@ -1,6 +1,6 @@
 # Story 2.1: BMAD Workflow Execution Engine
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -269,6 +269,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Commit: 42e71ce9d2edb9ff68dc421bf91e60877915c9b6
+- Date: 2026-01-16
+
 ### Completion Notes List
+- Added workflow execution state to sessionStore (workflowStatus, startWorkflow, progressWorkflow)
+- Implemented IPC handlers for startPlanningWorkflow, advancePlanningWorkflow, getPlanningWorkflowStatus
+- Added workflow IPC channels to constants
+- Workflow state persists to session.json for crash recovery
+- BMAD workflow sequence follows: Brief → PRD → Architecture → Epics → Stories
+
 ### File List
+
+**Modified Files:**
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added workflow IPC handlers (startPlanningWorkflow, advancePlanningWorkflow, getPlanningWorkflowStatus)
+- `apps/frontend/src/preload/api/modules/planning-api.ts` - Added workflow API methods
+- `apps/frontend/src/renderer/stores/planning/sessionStore.ts` - Added workflowStatus state, startWorkflow/progressWorkflow actions
+- `apps/frontend/src/shared/constants/ipc.ts` - Added workflow IPC channel constants
+- `apps/frontend/src/shared/types/ipc.ts` - Added workflow-related type definitions

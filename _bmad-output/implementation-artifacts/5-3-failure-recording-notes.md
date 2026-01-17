@@ -1,6 +1,6 @@
 # Story 5.3: Failure Recording and Notes
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -389,6 +389,31 @@ def update_queue_with_failure(queue_path: Path, task_id: str, failure_reason: st
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Date: 2026-01-16
+- Conversation with Pierre continuing Epic 5 implementation
+
 ### Completion Notes List
+- Created FailureAnalyzer class for AI-powered failure analysis
+- Implemented structured analysis prompt with error summary, AI analysis, suggested fixes
+- Created FailureLogger class for appending failure logs to story files
+- Implemented attempt counting for failure history
+- Added failure log section format with timestamp, duration, phase
+- Created execution logs directory creation utility
+- Implemented artifact saving for debugging
+- Added story status update on failure with timestamp
+
 ### File List
+
+**New Files:**
+- `apps/backend/planning/failure_analyzer.py` - FailureAnalyzer class with AI analysis
+- `apps/backend/planning/failure_logger.py` - FailureLogger class with log appending
+
+**Modified Files:**
+- `apps/backend/planning/sprint_executor.py` - Integrated failure handling and analysis
+- `apps/backend/planning/__init__.py` - Added new exports
+- `apps/frontend/src/shared/types/planning.ts` - Added FailureAnalysis, FailureLogEntry types
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added failure translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added failure translations (French)

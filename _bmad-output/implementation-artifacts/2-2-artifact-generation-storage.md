@@ -1,6 +1,6 @@
 # Story 2.2: Artifact Generation and Storage
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -330,6 +330,29 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Commit: 42e71ce9d2edb9ff68dc421bf91e60877915c9b6
+- Date: 2026-01-16
+
 ### Completion Notes List
+- Defined artifact types: ArtifactMetadata, PlanningArtifact, ArtifactSummary
+- Implemented IPC handlers for listPlanningArtifacts, savePlanningArtifact
+- YAML frontmatter generation with id, title, type, status, created_at, updated_at, workflow_step
+- Atomic file writes using temp file + rename pattern
+- Storage structure: `.auto-claude/planning/{project}/` with `stories/` subdirectory
+- File operations complete within 1 second per NFR4
+
 ### File List
+
+**New Files:**
+- `apps/frontend/src/shared/types/planning.ts` - Artifact types (ArtifactMetadata, PlanningArtifact, ArtifactSummary, ArtifactType enum)
+
+**Modified Files:**
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added listPlanningArtifacts, savePlanningArtifact IPC handlers with atomic writes
+- `apps/frontend/src/preload/api/modules/planning-api.ts` - Added artifact API methods
+- `apps/frontend/src/shared/constants/ipc.ts` - Added artifact IPC channel constants
+- `apps/frontend/src/shared/types/ipc.ts` - Added artifact-related type definitions
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added artifact status messages
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added artifact status messages (French)

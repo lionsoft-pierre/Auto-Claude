@@ -1,6 +1,6 @@
 # Story 2.6: Git Checkpoint Commits
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -442,6 +442,32 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Commit: 42e71ce9d2edb9ff68dc421bf91e60877915c9b6
+- Date: 2026-01-16
+
 ### Completion Notes List
+- Created CheckpointHistory component with collapsible list of commits
+- Displays commit hash (7 chars), date, and "View" button for each checkpoint
+- Added checkpoint state to sessionStore: lastCheckpointHash, checkpoints array
+- Implemented IPC handlers for createPlanningCheckpoint, listPlanningCheckpoints, viewCheckpointArtifact
+- Atomic commits (NFR9): all planning files staged and committed together
+- Commit message format: "Planning checkpoint: {YYYY-MM-DD HH:MM}"
+- Error handling for: not in git repo, no changes, git errors
+- Success/error toast notifications with commit hash
+
 ### File List
+
+**New Files:**
+- `apps/frontend/src/renderer/components/planning/CheckpointHistory.tsx` - Checkpoint list UI with view buttons
+
+**Modified Files:**
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added git checkpoint IPC handlers (createPlanningCheckpoint, listPlanningCheckpoints, viewCheckpointArtifact)
+- `apps/frontend/src/renderer/stores/planning/sessionStore.ts` - Added lastCheckpointHash, checkpoints, recordCheckpoint action
+- `apps/frontend/src/renderer/components/planning/PlanningView.tsx` - Added checkpoint button to header
+- `apps/frontend/src/preload/api/modules/planning-api.ts` - Added checkpoint API methods
+- `apps/frontend/src/shared/constants/ipc.ts` - Added checkpoint IPC channel constants
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added checkpoint translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added checkpoint translations (French)

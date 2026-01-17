@@ -1,6 +1,6 @@
 # Story 5.1: Sprint Execution Launcher
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -383,6 +383,33 @@ export const StartSprintButton: React.FC<Props> = ({ sprintId }) => {
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Date: 2026-01-16
+- Conversation with Pierre starting from workflow status check
+
 ### Completion Notes List
+- Created SprintExecutor class in `apps/backend/planning/sprint_executor.py`
+- Implemented non-blocking execution loop with automatic story pickup
+- Added IPC handlers for start, stop, pause, resume execution
+- Added execution status polling mechanism
+- Created execution logger for debugging
+- Implemented priority-based story selection
+- Added status synchronization across queue and Kanban
+- IPC event system for real-time UI updates
+
 ### File List
+
+**New Files:**
+- `apps/backend/planning/__init__.py` - Module exports
+- `apps/backend/planning/sprint_executor.py` - Main SprintExecutor class with execution loop
+- `apps/backend/planning/execution_logger.py` - SprintExecutionLogger and ExecutionLogger classes
+
+**Modified Files:**
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added execution IPC handlers (start, stop, pause, resume, status)
+- `apps/frontend/src/preload/api/modules/planning-api.ts` - Added execution API methods and event listeners
+- `apps/frontend/src/shared/constants/ipc.ts` - Added PLANNING_EXECUTION_* IPC channels
+- `apps/frontend/src/shared/types/planning.ts` - Added SprintExecutionState, ExecutionStatus, ExecutionProgressEvent types
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added execution translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added execution translations (French)

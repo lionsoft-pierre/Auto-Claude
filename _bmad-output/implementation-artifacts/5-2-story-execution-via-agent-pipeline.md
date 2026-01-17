@@ -1,6 +1,6 @@
 # Story 5.2: Story Execution via Agent Pipeline
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -312,6 +312,28 @@ class ExecutionLogger:
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Date: 2026-01-16
+- Conversation with Pierre continuing Epic 5 implementation
+
 ### Completion Notes List
+- Created StoryToSpecConverter class for converting story markdown to spec format
+- Implemented acceptance criteria extraction with Given/When/Then parsing
+- Created context loading from linked PRD and architecture documents
+- Implemented build_agent_context function for comprehensive agent context
+- Created StatusSynchronizer for keeping story, task, and queue aligned
+- Added status mapping between story status and Kanban column
+- Implemented story file frontmatter updates on completion
+- Created spec directory creation from story data
+
 ### File List
+
+**New Files:**
+- `apps/backend/planning/story_to_spec.py` - StoryToSpecConverter class with context loading
+- `apps/backend/planning/status_synchronizer.py` - StatusSynchronizer class for cross-store sync
+
+**Modified Files:**
+- `apps/backend/planning/sprint_executor.py` - Integrated story-to-spec conversion and agent pipeline
+- `apps/backend/planning/__init__.py` - Added new exports

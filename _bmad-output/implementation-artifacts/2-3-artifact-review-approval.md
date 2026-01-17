@@ -1,6 +1,6 @@
 # Story 2.3: Artifact Review and Approval
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -346,6 +346,28 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Commit: 42e71ce9d2edb9ff68dc421bf91e60877915c9b6
+- Date: 2026-01-16
+
 ### Completion Notes List
+- Created ArtifactReviewPrompt component with Approve, Request Changes, and Reject buttons
+- Styled buttons distinctly: green approve, yellow revise, red reject
+- Added review state management to sessionStore: 'none' | 'pending' | 'revising'
+- Implemented IPC handlers for approvePlanningArtifact, rejectPlanningArtifact
+- Artifact status updates in frontmatter on approval (status: 'approved', approved_at timestamp)
+- Review state persists to session.json
+- Context preserved through revision cycles
+
 ### File List
+
+**New Files:**
+- `apps/frontend/src/renderer/components/planning/ArtifactReviewPrompt.tsx` - Review UI component with approve/revise/reject buttons
+
+**Modified Files:**
+- `apps/frontend/src/main/ipc-handlers/planning-handlers.ts` - Added approvePlanningArtifact, rejectPlanningArtifact IPC handlers
+- `apps/frontend/src/renderer/stores/planning/sessionStore.ts` - Added reviewState, pendingArtifact, approveArtifact, requestRevision, rejectArtifact
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added review prompt translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added review prompt translations (French)

@@ -1,6 +1,6 @@
 # Story 2.5: Artifact Linking and Navigation
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -376,6 +376,31 @@ const ArtifactListItem: React.FC<{ artifact: Artifact }> = ({ artifact }) => {
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.5 (claude-opus-4-5-20251101)
+
 ### Debug Log References
+- Commit: 42e71ce9d2edb9ff68dc421bf91e60877915c9b6
+- Date: 2026-01-16
+
 ### Completion Notes List
+- Created ArtifactBreadcrumb component showing artifact hierarchy with chevron separators
+- Each breadcrumb level is clickable for navigation
+- Implemented internal link parsing using [[artifact-type:section]] format
+- Links rendered as clickable elements that navigate to referenced artifact/section
+- Added navigation history to artifactStore for back button support
+- Section anchors scroll smoothly to headings
+- Child count indicators show relationship counts (e.g., "Epics (6)")
+- Relationship graph built lazily and cached for performance
+
 ### File List
+
+**New Files:**
+- `apps/frontend/src/renderer/components/planning/ArtifactBreadcrumb.tsx` - Hierarchical navigation breadcrumb
+- `apps/frontend/src/renderer/lib/browser-mock.ts` - Link parsing utilities for internal artifact links
+
+**Modified Files:**
+- `apps/frontend/src/renderer/stores/planning/artifactStore.ts` - Added relationships map, navigationHistory, navigateToArtifact, navigateBack
+- `apps/frontend/src/renderer/components/planning/ArtifactViewer.tsx` - Integrated link parsing and click handling
+- `apps/frontend/src/renderer/components/planning/ArtifactPanel.tsx` - Added child count badges
+- `apps/frontend/src/shared/i18n/locales/en/planning.json` - Added breadcrumb and link translations
+- `apps/frontend/src/shared/i18n/locales/fr/planning.json` - Added breadcrumb and link translations (French)
