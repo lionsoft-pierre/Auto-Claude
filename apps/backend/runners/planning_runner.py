@@ -177,7 +177,7 @@ async def run_with_sdk(
 
 Current message: {message}"""
 
-    debug_section("Planning Runner")
+    debug_section("planning_runner", "Planning Runner")
     debug("planning_runner", "Starting", workflow=workflow_id, project=project_dir)
 
     try:
