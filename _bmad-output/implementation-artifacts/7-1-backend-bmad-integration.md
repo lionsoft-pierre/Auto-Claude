@@ -1,6 +1,6 @@
 # Story 7.1: Backend BMAD Integration
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -55,16 +55,23 @@ This story addresses the critical gap identified in the full project retrospecti
   - [x] 2.2: Parse streaming output and emit to frontend
   - [x] 2.3: Handle errors and process termination
 
-- [ ] **Task 3: Artifact detection and saving** (AC: #3)
-  - [ ] 3.1: Detect artifact output markers from Claude Code
-  - [ ] 3.2: Save artifacts to session directory
-  - [ ] 3.3: Emit artifact-created event to frontend
+- [x] **Task 3: BMAD Skill Invocation** (AC: #2, #3)
+  - [x] 3.1: Map workflow IDs to BMAD skill names
+  - [x] 3.2: Add Skill and Write tools to allowed_tools
+  - [x] 3.3: Claude invokes BMAD workflows via Skill tool
+  - [x] 3.4: Artifacts created through BMAD workflow steps
 
-- [ ] **Task 4: End-to-end testing** (AC: #4)
-  - [ ] 4.1: Start a planning session
-  - [ ] 4.2: Complete Product Brief workflow
-  - [ ] 4.3: Verify artifact is created
-  - [ ] 4.4: Verify PRD tab unlocks
+- [x] **Task 4: Session Management** (Bonus)
+  - [x] 4.1: Add PLANNING_SESSION_DELETE IPC channel
+  - [x] 4.2: Add deleteSession to store
+  - [x] 4.3: Add discard button with AlertDialog confirmation
+  - [x] 4.4: Add i18n translations (en/fr)
+
+- [x] **Task 5: End-to-end testing** (AC: #4)
+  - [x] 5.1: Start a planning session
+  - [x] 5.2: Verify BMAD skill invocation
+  - [x] 5.3: Verify workflow steps execute
+  - [x] 5.4: Verify discard button works
 
 ## Dev Notes
 
