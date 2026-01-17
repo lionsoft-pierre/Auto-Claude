@@ -3,6 +3,12 @@
   "newSession": "Nouvelle session de planification",
   "resumeSession": "Reprendre la session",
   "saveSession": "Enregistrer",
+  "discardSession": "Abandonner",
+  "discardConfirm": {
+    "title": "Abandonner la session de planification ?",
+    "description": "Cela supprimera définitivement tous les messages et la progression de cette session de planification. Cette action est irréversible.",
+    "confirm": "Abandonner la session"
+  },
   "selectMethodology": "Sélectionner une méthodologie",
   "startPlanning": "Commencer la planification",
   "noActiveSession": "Aucune session de planification active",
@@ -17,7 +23,8 @@
     "created": "Session créée",
     "resumed": "Session reprise",
     "saved": "Session sauvegardée",
-    "autoSaved": "Sauvegarde automatique"
+    "autoSaved": "Sauvegarde automatique",
+    "discarded": "Session abandonnée"
   },
   "workflow": {
     "brief": "Brief Produit",
@@ -41,7 +48,8 @@
     "loadFailed": "Échec du chargement de la session",
     "saveFailed": "Échec de la sauvegarde de la session",
     "createFailed": "Échec de la création de la session",
-    "listFailed": "Échec du chargement de la liste des sessions"
+    "listFailed": "Échec du chargement de la liste des sessions",
+    "discardFailed": "Échec de l'abandon de la session"
   },
   "sessionSelector": {
     "title": "Sessions de planification",

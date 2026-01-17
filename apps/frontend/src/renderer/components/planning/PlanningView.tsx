@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ClipboardList, Plus, Loader2, Save, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { ClipboardList, Plus, Loader2, Save, PanelLeftClose, PanelLeft, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { MethodologySelector } from './MethodologySelector';
 import { PlanningChat } from './PlanningChat';
@@ -38,6 +49,7 @@ export function PlanningView({ projectId }: PlanningViewProps) {
   const loadSession = useSessionStore((state) => state.loadSession);
   const createSession = useSessionStore((state) => state.createSession);
   const saveSession = useSessionStore((state) => state.saveSession);
+  const deleteSession = useSessionStore((state) => state.deleteSession);
   const startAutoSave = useSessionStore((state) => state.startAutoSave);
   const stopAutoSave = useSessionStore((state) => state.stopAutoSave);
 
@@ -96,6 +108,25 @@ export function PlanningView({ projectId }: PlanningViewProps) {
     } else {
       toast({
         title: t('planning:errors.saveFailed'),
+        variant: 'destructive',
+        duration: 3000
+      });
+    }
+  };
+
+  // Handle discard session
+  const handleDiscard = async () => {
+    const success = await deleteSession(projectId);
+    if (success) {
+      toast({
+        title: t('planning:session.discarded'),
+        duration: 2000
+      });
+      // Show methodology selector to start fresh
+      setShowMethodologySelector(true);
+    } else {
+      toast({
+        title: t('planning:errors.discardFailed'),
         variant: 'destructive',
         duration: 3000
       });
@@ -188,21 +219,55 @@ export function PlanningView({ projectId }: PlanningViewProps) {
                 </p>
               </div>
             </div>
-            {/* Save button (Story 1.3) */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSave}
-              disabled={isSaving || !isDirty}
-              className="gap-2"
-            >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {t('planning:saveSession')}
-            </Button>
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              {/* Save button (Story 1.3) */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving || !isDirty}
+                className="gap-2"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {t('planning:saveSession')}
+              </Button>
+
+              {/* Discard button with confirmation */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t('planning:discardSession')}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('planning:discardConfirm.title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('planning:discardConfirm.description')}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common:cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDiscard}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {t('planning:discardConfirm.confirm')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
 
           {/* Workflow Progress Indicator (Story 1.4) */}
