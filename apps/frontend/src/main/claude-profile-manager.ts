@@ -76,7 +76,9 @@ export class ClaudeProfileManager {
    * This should be called at app startup via initializeClaudeProfileManager()
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {
+      return;
+    }
 
     // Ensure directory exists (async) - mkdir with recursive:true is idempotent
     await mkdir(this.configDir, { recursive: true });
@@ -86,10 +88,8 @@ export class ClaudeProfileManager {
     if (loadedData) {
       this.data = loadedData;
     }
-    // else: keep the default data from constructor
 
     this.initialized = true;
-    console.warn('[ClaudeProfileManager] Initialized asynchronously');
   }
 
   /**
@@ -227,13 +227,11 @@ export class ClaudeProfileManager {
 
     // Cannot delete default profile
     if (profile.isDefault) {
-      console.warn('[ClaudeProfileManager] Cannot delete default profile');
       return false;
     }
 
     // Cannot delete if it's the only profile
     if (this.data.profiles.length <= 1) {
-      console.warn('[ClaudeProfileManager] Cannot delete last profile');
       return false;
     }
 
@@ -261,13 +259,11 @@ export class ClaudeProfileManager {
 
     // Cannot rename to empty name
     if (!newName.trim()) {
-      console.warn('[ClaudeProfileManager] Cannot rename to empty name');
       return false;
     }
 
     profile.name = newName.trim();
     this.save();
-    console.warn('[ClaudeProfileManager] Renamed profile:', profileId, 'to:', newName);
     return true;
   }
 
@@ -342,13 +338,6 @@ export class ClaudeProfileManager {
     profile.rateLimitEvents = [];
 
     this.save();
-
-    const isEncrypted = profile.oauthToken.startsWith('enc:');
-    console.warn('[ClaudeProfileManager] Set OAuth token for profile:', profile.name, {
-      email: email || '(not captured)',
-      encrypted: isEncrypted,
-      tokenLength: token.length
-    });
     return true;
   }
 
@@ -377,14 +366,10 @@ export class ClaudeProfileManager {
       const decryptedToken = decryptToken(profile.oauthToken);
       if (decryptedToken) {
         env.CLAUDE_CODE_OAUTH_TOKEN = decryptedToken;
-        console.warn('[ClaudeProfileManager] Using OAuth token for profile:', profile.name);
-      } else {
-        console.warn('[ClaudeProfileManager] Failed to decrypt token for profile:', profile.name);
       }
     } else if (profile?.configDir && !profile.isDefault) {
       // Fallback to configDir for backward compatibility
       env.CLAUDE_CONFIG_DIR = profile.configDir;
-      console.warn('[ClaudeProfileManager] Using configDir for profile:', profile.name);
     }
 
     return env;
@@ -402,8 +387,6 @@ export class ClaudeProfileManager {
     const usage = parseUsageOutput(usageOutput);
     profile.usage = usage;
     this.save();
-
-    console.warn('[ClaudeProfileManager] Updated usage for', profile.name, ':', usage);
     return usage;
   }
 
@@ -418,8 +401,6 @@ export class ClaudeProfileManager {
 
     const event = recordRateLimitEventImpl(profile, resetTimeStr);
     this.save();
-
-    console.warn('[ClaudeProfileManager] Recorded rate limit event for', profile.name, ':', event);
     return event;
   }
 
@@ -568,6 +549,7 @@ export function getClaudeProfileManager(): ClaudeProfileManager {
  * Initialize and get the singleton Claude profile manager instance (async)
  * This ensures the profile manager is fully initialized before use.
  * Uses promise caching to prevent concurrent initialization.
+ * The cached promise is reset on failure to allow retries after transient errors.
  */
 export async function initializeClaudeProfileManager(): Promise<ClaudeProfileManager> {
   if (!profileManager) {
@@ -581,9 +563,16 @@ export async function initializeClaudeProfileManager(): Promise<ClaudeProfileMan
 
   // If initialization is in progress, wait for it (promise caching)
   if (!initPromise) {
-    initPromise = profileManager.initialize().then(() => {
-      return profileManager!;
-    });
+    initPromise = profileManager.initialize()
+      .then(() => {
+        return profileManager!;
+      })
+      .catch((error) => {
+        // Reset cached promise on failure so retries can succeed
+        // This allows recovery from transient errors (e.g., disk full, permission issues)
+        initPromise = null;
+        throw error;
+      });
   }
 
   return initPromise;

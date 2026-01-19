@@ -26,7 +26,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TypedDict, TypeVar
 
-from core.git_executable import get_git_executable, run_git
+from core.gh_executable import get_gh_executable, invalidate_gh_cache
+from core.git_executable import get_git_executable, get_isolated_git_env, run_git
 from debug import debug_warning
 
 T = TypeVar("T")
@@ -614,11 +615,27 @@ class WorktreeManager:
         else:
             print(f"Merging {info.branch} into {self.base_branch}...")
 
-        # Switch to base branch in main project
-        result = self._run_git(["checkout", self.base_branch])
-        if result.returncode != 0:
-            print(f"Error: Could not checkout base branch: {result.stderr}")
-            return False
+        # Switch to base branch in main project, but skip if already on it
+        # This avoids triggering git hooks unnecessarily
+        current_branch = self._get_current_branch()
+        if current_branch != self.base_branch:
+            result = self._run_git(["checkout", self.base_branch])
+            if result.returncode != 0:
+                # Check if this is a hook failure vs actual checkout failure
+                # Hook failures still change the branch but return non-zero
+                new_branch = self._get_current_branch()
+                if new_branch == self.base_branch:
+                    # Branch did change - likely a hook failure, continue with merge
+                    stderr_msg = result.stderr[:100] if result.stderr else "<no stderr>"
+                    debug_warning(
+                        "worktree",
+                        f"Checkout succeeded but hook returned non-zero: {stderr_msg}",
+                    )
+                else:
+                    # Actual checkout failure
+                    stderr_msg = result.stderr[:100] if result.stderr else "<no stderr>"
+                    print(f"Error: Could not checkout base branch: {stderr_msg}")
+                    return False
 
         # Merge the spec branch
         merge_args = ["merge", "--no-ff", info.branch]
@@ -631,7 +648,29 @@ class WorktreeManager:
         result = self._run_git(merge_args)
 
         if result.returncode != 0:
-            print("Merge conflict! Aborting merge...")
+            # Check if it's "already up to date" - not an error
+            output = (result.stdout + result.stderr).lower()
+            if "already up to date" in output or "already up-to-date" in output:
+                print(f"Branch {info.branch} is already up to date.")
+                if no_commit:
+                    print("No changes to stage.")
+                if delete_after:
+                    self.remove_worktree(spec_name, delete_branch=True)
+                return True
+            # Check for actual conflicts
+            if "conflict" in output:
+                print("Merge conflict! Aborting merge...")
+                self._run_git(["merge", "--abort"])
+                return False
+            # Other error - show details
+            stderr_msg = (
+                result.stderr[:200]
+                if result.stderr
+                else result.stdout[:200]
+                if result.stdout
+                else "<no output>"
+            )
+            print(f"Merge failed: {stderr_msg}")
             self._run_git(["merge", "--abort"])
             return False
 
@@ -845,6 +884,7 @@ class WorktreeManager:
                     encoding="utf-8",
                     errors="replace",
                     timeout=self.GIT_PUSH_TIMEOUT,
+                    env=get_isolated_git_env(),
                 )
 
                 if result.returncode == 0:
@@ -921,9 +961,17 @@ class WorktreeManager:
         # Get PR body from spec.md if available
         pr_body = self._extract_spec_summary(spec_name)
 
+        # Find gh executable before attempting PR creation
+        gh_executable = get_gh_executable()
+        if not gh_executable:
+            return PullRequestResult(
+                success=False,
+                error="GitHub CLI (gh) not found. Install from https://cli.github.com/",
+            )
+
         # Build gh pr create command
         gh_args = [
-            "gh",
+            gh_executable,
             "pr",
             "create",
             "--base",
@@ -955,6 +1003,7 @@ class WorktreeManager:
                     encoding="utf-8",
                     errors="replace",
                     timeout=self.GH_CLI_TIMEOUT,
+                    env=get_isolated_git_env(),
                 )
 
                 # Check for "already exists" case (success, no retry needed)
@@ -1025,7 +1074,8 @@ class WorktreeManager:
             )
 
         except FileNotFoundError:
-            # gh CLI not installed
+            # Cached gh path became invalid - clear cache so next call re-discovers
+            invalidate_gh_cache()
             return PullRequestResult(
                 success=False,
                 error="gh CLI not found. Install from https://cli.github.com/",
@@ -1083,15 +1133,30 @@ class WorktreeManager:
         if not info:
             return None
 
+        gh_executable = get_gh_executable()
+        if not gh_executable:
+            # gh CLI not found - return None and let caller handle it
+            return None
+
         try:
             result = subprocess.run(
-                ["gh", "pr", "view", info.branch, "--json", "url", "--jq", ".url"],
+                [
+                    gh_executable,
+                    "pr",
+                    "view",
+                    info.branch,
+                    "--json",
+                    "url",
+                    "--jq",
+                    ".url",
+                ],
                 cwd=info.path,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
                 timeout=self.GH_QUERY_TIMEOUT,
+                env=get_isolated_git_env(),
             )
             if result.returncode == 0:
                 return result.stdout.strip()
@@ -1103,6 +1168,8 @@ class WorktreeManager:
             # Silently ignore errors when fetching existing PR URL - this is a best-effort
             # lookup that may fail due to network issues, missing gh CLI, or auth problems.
             # Returning None allows the caller to handle missing URLs gracefully.
+            if isinstance(e, FileNotFoundError):
+                invalidate_gh_cache()
             debug_warning("worktree", f"Could not get existing PR URL: {e}")
 
         return None

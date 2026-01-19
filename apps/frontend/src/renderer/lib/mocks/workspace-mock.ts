@@ -62,12 +62,17 @@ export const workspaceMock = {
     }
   }),
 
-  discardWorktree: async () => ({
+  discardWorktree: async (_taskId: string, _skipStatusChange?: boolean) => ({
     success: true,
     data: {
       success: true,
       message: 'Worktree discarded successfully'
     }
+  }),
+
+  clearStagedState: async () => ({
+    success: true,
+    data: { cleared: true }
   }),
 
   listWorktrees: async () => ({

@@ -1,7 +1,22 @@
+// Polyfill CommonJS require for ESM compatibility
+// This MUST be at the very top, before any imports that might trigger Sentry's
+// require-in-the-middle hooks. Sentry's hooks expect require.cache to exist,
+// which is only available in CommonJS. Without this, node-pty native module
+// loading fails with "ReferenceError: require is not defined".
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+// Make require globally available for Sentry's require-in-the-middle hooks
+globalThis.require = require;
+
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load .env from apps/frontend directory
 // In development: __dirname is out/main (compiled), so go up 2 levels
@@ -30,7 +45,7 @@ import { TerminalManager } from './terminal-manager';
 import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
-import { initializeAppUpdater } from './app-updater';
+import { initializeAppUpdater, stopPeriodicUpdates } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
@@ -189,9 +204,24 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
-  // Handle external links
+  // Handle external links with URL scheme allowlist for security
+  // Note: Terminal links now use IPC via WebLinksAddon callback, but this handler
+  // catches any other window.open() calls (e.g., from third-party libraries)
+  const ALLOWED_URL_SCHEMES = ['http:', 'https:', 'mailto:'];
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    try {
+      const url = new URL(details.url);
+      if (!ALLOWED_URL_SCHEMES.includes(url.protocol)) {
+        console.warn('[main] Blocked URL with disallowed scheme:', details.url);
+        return { action: 'deny' };
+      }
+    } catch {
+      console.warn('[main] Blocked invalid URL:', details.url);
+      return { action: 'deny' };
+    }
+    shell.openExternal(details.url).catch((error) => {
+      console.warn('[main] Failed to open external URL:', details.url, error);
+    });
     return { action: 'deny' };
   });
 
@@ -359,24 +389,34 @@ app.whenReady().then(() => {
     });
   });
 
-  // Pre-initialize Claude profile manager in background (non-blocking)
-  // This ensures profile data is loaded before user clicks "Start Claude Code"
-  setImmediate(() => {
-    initializeClaudeProfileManager().catch((error) => {
-      console.warn('[main] Failed to pre-initialize profile manager:', error);
+  // Initialize Claude profile manager, then start usage monitor
+  // We do this sequentially to ensure profile data (including auto-switch settings)
+  // is loaded BEFORE the usage monitor attempts to read settings.
+  // This prevents the "UsageMonitor disabled" error due to race condition.
+  initializeClaudeProfileManager()
+    .then(() => {
+      // Only start monitoring if window is still available (app not quitting)
+      if (mainWindow) {
+        // Setup event forwarding from usage monitor to renderer
+        initializeUsageMonitorForwarding(mainWindow);
+
+        // Start the usage monitor
+        const usageMonitor = getUsageMonitor();
+        usageMonitor.start();
+        console.warn('[main] Usage monitor initialized and started (after profile load)');
+      }
+    })
+    .catch((error) => {
+      console.warn('[main] Failed to initialize profile manager:', error);
+      // Fallback: try starting usage monitor anyway (might use defaults)
+      if (mainWindow) {
+        initializeUsageMonitorForwarding(mainWindow);
+        const usageMonitor = getUsageMonitor();
+        usageMonitor.start();
+      }
     });
-  });
 
-  // Initialize usage monitoring after window is created
   if (mainWindow) {
-    // Setup event forwarding from usage monitor to renderer
-    initializeUsageMonitorForwarding(mainWindow);
-
-    // Start the usage monitor
-    const usageMonitor = getUsageMonitor();
-    usageMonitor.start();
-    console.warn('[main] Usage monitor initialized and started');
-
     // Log debug mode status
     const isDebugMode = process.env.DEBUG === 'true';
     if (isDebugMode) {
@@ -425,6 +465,9 @@ app.on('window-all-closed', () => {
 
 // Cleanup before quit
 app.on('before-quit', async () => {
+  // Stop periodic update checks
+  stopPeriodicUpdates();
+
   // Stop usage monitor
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();

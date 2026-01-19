@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { SettingsSection } from './SettingsSection';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
 import { useClaudeLoginTerminal } from '../../hooks/useClaudeLoginTerminal';
+import { useToast } from '../../hooks/use-toast';
 import type { AppSettings, ClaudeProfile, ClaudeAutoSwitchSettings } from '../../../shared/types';
 
 interface IntegrationSettingsProps {
@@ -43,6 +44,7 @@ interface IntegrationSettingsProps {
 export function IntegrationSettings({ settings, onSettingsChange, isOpen }: IntegrationSettingsProps) {
   const { t } = useTranslation('settings');
   const { t: tCommon } = useTranslation('common');
+  const { toast } = useToast();
   // Password visibility toggle for global API keys
   const [showGlobalOpenAIKey, setShowGlobalOpenAIKey] = useState(false);
 
@@ -83,13 +85,41 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       if (info.success && info.profileId) {
         // Reload profiles to show updated state
         await loadClaudeProfiles();
-        // Show simple success notification
-        alert(`✅ Profile authenticated successfully!\n\n${info.email ? `Account: ${info.email}` : 'Authentication complete.'}\n\nYou can now use this profile.`);
+        // Show simple success notification (non-blocking)
+        toast({
+          title: t('integrations.toast.authSuccess'),
+          description: info.email ? t('integrations.toast.authSuccessWithEmail', { email: info.email }) : t('integrations.toast.authSuccessGeneric'),
+        });
+      } else if (!info.success) {
+        // Handle authentication failure
+        await loadClaudeProfiles();
+
+        const errorMessage = info.message || '';
+        let title = t('integrations.toast.authStartFailed');
+        let description = t('integrations.toast.tryAgain');
+
+        // Provide specific error messages based on error type
+        if (errorMessage.toLowerCase().includes('cancelled') || errorMessage.toLowerCase().includes('timeout')) {
+          title = t('integrations.toast.authProcessFailed');
+          description = errorMessage || t('integrations.toast.authProcessFailedDescription');
+        } else if (errorMessage.toLowerCase().includes('invalid') || errorMessage.toLowerCase().includes('token')) {
+          title = t('integrations.toast.tokenSaveFailed');
+          description = errorMessage || t('integrations.toast.tryAgain');
+        } else if (errorMessage) {
+          title = t('integrations.toast.authProcessFailed');
+          description = errorMessage;
+        }
+
+        toast({
+          variant: 'destructive',
+          title,
+          description,
+        });
       }
     });
 
     return unsubscribe;
-  }, []);
+  }, [t, toast]);
 
   const loadClaudeProfiles = async () => {
     setIsLoadingProfiles(true);
@@ -100,16 +130,29 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         setActiveProfileId(result.data.activeProfileId);
         // Also update the global store
         await loadGlobalClaudeProfiles();
+      } else if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.loadProfilesFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      console.error('Failed to load Claude profiles:', err);
+      console.warn('[IntegrationSettings] Failed to load Claude profiles:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.loadProfilesFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setIsLoadingProfiles(false);
     }
   };
 
   const handleAddProfile = async () => {
-    if (!newProfileName.trim()) return;
+    if (!newProfileName.trim()) {
+      return;
+    }
 
     setIsAddingProfile(true);
     try {
@@ -135,12 +178,36 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
           // Users can see the 'claude setup-token' output directly
         } else {
           await loadClaudeProfiles();
-          alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
+          setNewProfileName('');
+
+          const errorMessage = initResult.error || '';
+          let title = t('integrations.toast.profileCreatedAuthFailed');
+          let description = t('integrations.toast.profileCreatedAuthFailedDescription');
+
+          if (errorMessage.toLowerCase().includes('max terminals')) {
+            title = t('integrations.toast.maxTerminalsReached');
+            description = t('integrations.toast.maxTerminalsReachedDescription');
+          } else if (errorMessage.toLowerCase().includes('terminal creation')) {
+            title = t('integrations.toast.terminalCreationFailed');
+            description = t('integrations.toast.terminalCreationFailedDescription', { error: errorMessage });
+          } else if (errorMessage.toLowerCase().includes('terminal')) {
+            title = t('integrations.toast.terminalError');
+            description = t('integrations.toast.terminalErrorDescription', { error: errorMessage });
+          }
+
+          toast({
+            variant: 'destructive',
+            title,
+            description,
+          });
         }
       }
     } catch (err) {
-      console.error('Failed to add profile:', err);
-      alert('Failed to add profile. Please try again.');
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.addProfileFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setIsAddingProfile(false);
     }
@@ -152,9 +219,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       const result = await window.electronAPI.deleteClaudeProfile(profileId);
       if (result.success) {
         await loadClaudeProfiles();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.deleteProfileFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      console.error('Failed to delete profile:', err);
+      console.warn('[IntegrationSettings] Failed to delete profile:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.deleteProfileFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setDeletingProfileId(null);
     }
@@ -177,9 +255,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       const result = await window.electronAPI.renameClaudeProfile(editingProfileId, editingProfileName.trim());
       if (result.success) {
         await loadClaudeProfiles();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.renameProfileFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      console.error('Failed to rename profile:', err);
+      console.warn('[IntegrationSettings] Failed to rename profile:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.renameProfileFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setEditingProfileId(null);
       setEditingProfileName('');
@@ -192,9 +281,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       if (result.success) {
         setActiveProfileId(profileId);
         await loadGlobalClaudeProfiles();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.setActiveProfileFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      console.error('Failed to set active profile:', err);
+      console.warn('[IntegrationSettings] Failed to set active profile:', err);
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.setActiveProfileFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     }
   };
 
@@ -203,13 +303,41 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
     try {
       const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
       if (!initResult.success) {
-        alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
+        const errorMessage = initResult.error || '';
+        let title: string;
+        let description: string;
+
+        if (errorMessage.toLowerCase().includes('max terminals')) {
+          title = t('integrations.toast.maxTerminalsReached');
+          description = t('integrations.toast.maxTerminalsReachedDescription');
+        } else if (errorMessage.toLowerCase().includes('terminal creation')) {
+          title = t('integrations.toast.terminalCreationFailed');
+          description = t('integrations.toast.terminalCreationFailedDescription', { error: errorMessage });
+        } else if (errorMessage.toLowerCase().includes('terminal')) {
+          title = t('integrations.toast.terminalError');
+          description = t('integrations.toast.terminalErrorDescription', { error: errorMessage });
+        } else if (errorMessage) {
+          title = t('integrations.toast.authProcessFailed');
+          description = errorMessage;
+        } else {
+          title = t('integrations.toast.authProcessFailed');
+          description = t('integrations.toast.authProcessFailedDescription');
+        }
+
+        toast({
+          variant: 'destructive',
+          title,
+          description,
+        });
       }
       // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
       // Users can see the 'claude setup-token' output and complete OAuth flow directly
     } catch (err) {
-      console.error('Failed to authenticate profile:', err);
-      alert('Failed to start authentication. Please try again.');
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.authStartFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setAuthenticatingProfileId(null);
     }
@@ -245,12 +373,23 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         setManualToken('');
         setManualTokenEmail('');
         setShowManualToken(false);
+        toast({
+          title: t('integrations.toast.tokenSaved'),
+          description: t('integrations.toast.tokenSavedDescription'),
+        });
       } else {
-        alert(`Failed to save token: ${result.error || 'Please try again.'}`);
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.tokenSaveFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      console.error('Failed to save token:', err);
-      alert('Failed to save token. Please try again.');
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.tokenSaveFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setSavingTokenProfileId(null);
     }
@@ -265,7 +404,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         setAutoSwitchSettings(result.data);
       }
     } catch (err) {
-      console.error('Failed to load auto-switch settings:', err);
+      // Silently handle errors
     } finally {
       setIsLoadingAutoSwitch(false);
     }
@@ -279,11 +418,18 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       if (result.success) {
         await loadAutoSwitchSettings();
       } else {
-        alert(`Failed to update settings: ${result.error || 'Please try again.'}`);
+        toast({
+          variant: 'destructive',
+          title: t('integrations.toast.settingsUpdateFailed'),
+          description: result.error || t('integrations.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      console.error('Failed to update auto-switch settings:', err);
-      alert('Failed to update settings. Please try again.');
+      toast({
+        variant: 'destructive',
+        title: t('integrations.toast.settingsUpdateFailed'),
+        description: t('integrations.toast.tryAgain'),
+      });
     } finally {
       setIsLoadingAutoSwitch(false);
     }

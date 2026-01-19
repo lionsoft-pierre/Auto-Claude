@@ -1,4 +1,4 @@
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment, WorktreeCreatePRResult } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
@@ -33,6 +33,10 @@ interface TaskReviewProps {
   showConflictDialog: boolean;
   onFeedbackChange: (value: string) => void;
   onReject: () => void;
+  /** Image attachments for visual feedback */
+  images?: ImageAttachment[];
+  /** Callback when images change */
+  onImagesChange?: (images: ImageAttachment[]) => void;
   onMerge: () => void;
   onDiscard: () => void;
   onShowDiscardDialog: (show: boolean) => void;
@@ -43,6 +47,7 @@ interface TaskReviewProps {
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
   onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
+  onReviewAgain?: () => void;
   // PR creation
   showPRDialog: boolean;
   isCreatingPR: boolean;
@@ -80,6 +85,8 @@ export function TaskReview({
   showConflictDialog,
   onFeedbackChange,
   onReject,
+  images,
+  onImagesChange,
   onMerge,
   onDiscard,
   onShowDiscardDialog,
@@ -90,6 +97,7 @@ export function TaskReview({
   onClose,
   onSwitchToTerminals,
   onOpenInbuiltTerminal,
+  onReviewAgain,
   showPRDialog,
   isCreatingPR,
   onShowPRDialog,
@@ -108,10 +116,23 @@ export function TaskReview({
         />
       )}
 
-      {/* Workspace Status - hide if staging was successful (worktree is deleted after staging) */}
+      {/* Workspace Status - priority: loading > fresh staging success > already staged (persisted) > worktree exists > no workspace */}
       {isLoadingWorktree ? (
         <LoadingMessage />
-      ) : worktreeStatus?.exists && !stagedSuccess ? (
+      ) : stagedSuccess ? (
+        /* Fresh staging just completed - StagedSuccessMessage is rendered above */
+        null
+      ) : task.stagedInMainProject ? (
+        /* Task was previously staged (persisted state) - show even if worktree still exists */
+        <StagedInProjectMessage
+          task={task}
+          projectPath={stagedProjectPath}
+          hasWorktree={worktreeStatus?.exists || false}
+          onClose={onClose}
+          onReviewAgain={onReviewAgain}
+        />
+      ) : worktreeStatus?.exists ? (
+        /* Worktree exists but not yet staged - show staging UI */
         <WorkspaceStatus
           worktreeStatus={worktreeStatus}
           workspaceError={workspaceError}
@@ -132,13 +153,6 @@ export function TaskReview({
           onSwitchToTerminals={onSwitchToTerminals}
           onOpenInbuiltTerminal={onOpenInbuiltTerminal}
         />
-      ) : task.stagedInMainProject && !stagedSuccess ? (
-        <StagedInProjectMessage
-          task={task}
-          projectPath={stagedProjectPath}
-          hasWorktree={worktreeStatus?.exists || false}
-          onClose={onClose}
-        />
       ) : (
         <NoWorkspaceMessage task={task} onClose={onClose} />
       )}
@@ -149,6 +163,8 @@ export function TaskReview({
         isSubmitting={isSubmitting}
         onFeedbackChange={onFeedbackChange}
         onReject={onReject}
+        images={images}
+        onImagesChange={onImagesChange}
       />
 
       {/* Discard Confirmation Dialog */}

@@ -20,40 +20,35 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execFileSync, execFile } from 'child_process';
+import { execFileSync, execFile, type ExecFileOptionsWithStringEncoding, type ExecFileSyncOptions } from 'child_process';
 import { existsSync, readdirSync, promises as fsPromises } from 'fs';
 import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync } from './env-utils';
+import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
+import { isWindows, isMacOS, isUnix, joinPaths, getExecutableExtension } from './platform';
+import type { ToolDetectionResult } from '../shared/types';
+import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 
 const execFileAsync = promisify(execFile);
 
-/**
- * Check if a path exists asynchronously (non-blocking)
- *
- * Uses fs.promises.access which is non-blocking, unlike fs.existsSync.
- *
- * @param filePath - The path to check
- * @returns Promise resolving to true if path exists, false otherwise
- */
-async function existsAsync(filePath: string): Promise<boolean> {
-  try {
-    await fsPromises.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-import type { ToolDetectionResult } from '../shared/types';
-import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
+export type ExecFileSyncOptionsWithVerbatim = ExecFileSyncOptions & {
+  windowsVerbatimArguments?: boolean;
+};
+export type ExecFileAsyncOptionsWithVerbatim = ExecFileOptionsWithStringEncoding & {
+  windowsVerbatimArguments?: boolean;
+};
+
+const normalizeExecOutput = (output: string | Buffer): string =>
+  typeof output === 'string' ? output : output.toString('utf-8');
 import {
   getWindowsExecutablePaths,
   getWindowsExecutablePathsAsync,
   WINDOWS_GIT_PATHS,
   findWindowsExecutableViaWhere,
   findWindowsExecutableViaWhereAsync,
+  isSecurePath,
 } from './utils/windows-paths';
 
 /**
@@ -101,9 +96,7 @@ interface CacheEntry {
 function isWrongPlatformPath(pathStr: string | undefined): boolean {
   if (!pathStr) return false;
 
-  const isWindows = process.platform === 'win32';
-
-  if (isWindows) {
+  if (isWindows()) {
     // On Windows, reject Unix-style absolute paths (starting with /)
     // but allow relative paths and Windows paths
     if (pathStr.startsWith('/') && !pathStr.startsWith('//')) {
@@ -153,6 +146,16 @@ interface ClaudeDetectionPaths {
  * This pure function consolidates path configuration used by both sync
  * and async detection methods.
  *
+ * IMPORTANT: This function has a corresponding implementation in the Python backend:
+ * apps/backend/core/client.py (_get_claude_detection_paths)
+ *
+ * Both implementations MUST be kept in sync to ensure consistent detection behavior
+ * across the Electron frontend and Python backend.
+ *
+ * When adding new detection paths, update BOTH:
+ * 1. This function (getClaudeDetectionPaths in cli-tool-manager.ts)
+ * 2. _get_claude_detection_paths() in client.py
+ *
  * @param homeDir - User's home directory (from os.homedir())
  * @returns Object containing homebrew, platform, and NVM paths
  *
@@ -166,20 +169,20 @@ export function getClaudeDetectionPaths(homeDir: string): ClaudeDetectionPaths {
     '/usr/local/bin/claude',    // Intel Mac
   ];
 
-  const platformPaths = process.platform === 'win32'
+  const platformPaths = isWindows()
     ? [
-        path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-        path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-        path.join(homeDir, '.local', 'bin', 'claude.exe'),
+        joinPaths(homeDir, 'AppData', 'Local', 'Programs', 'claude', `claude${getExecutableExtension()}`),
+        joinPaths(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+        joinPaths(homeDir, '.local', 'bin', `claude${getExecutableExtension()}`),
         'C:\\Program Files\\Claude\\claude.exe',
         'C:\\Program Files (x86)\\Claude\\claude.exe',
       ]
     : [
-        path.join(homeDir, '.local', 'bin', 'claude'),
-        path.join(homeDir, 'bin', 'claude'),
+        joinPaths(homeDir, '.local', 'bin', 'claude'),
+        joinPaths(homeDir, 'bin', 'claude'),
       ];
 
-  const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
+  const nvmVersionsDir = joinPaths(homeDir, '.nvm', 'versions', 'node');
 
   return { homebrewPaths, platformPaths, nvmVersionsDir };
 }
@@ -418,7 +421,7 @@ class CLIToolManager {
     }
 
     // 3. Homebrew Python (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPath = this.findHomebrewPython();
       if (homebrewPath) {
         const validation = this.validatePython(homebrewPath);
@@ -436,7 +439,7 @@ class CLIToolManager {
 
     // 4. System PATH (augmented)
     const candidates =
-      process.platform === 'win32'
+      isWindows()
         ? ['py -3', 'python', 'python3', 'py']
         : ['python3', 'python'];
 
@@ -515,7 +518,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/git', // Apple Silicon
         '/usr/local/bin/git', // Intel Mac
@@ -553,7 +556,7 @@ class CLIToolManager {
     }
 
     // 4. Windows-specific detection using 'where' command (most reliable for custom installs)
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       // First try 'where' command - finds git regardless of installation location
       const whereGitPath = findWindowsExecutableViaWhere('git', '[Git]');
       if (whereGitPath) {
@@ -630,7 +633,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/gh', // Apple Silicon
         '/usr/local/bin/gh', // Intel Mac
@@ -668,7 +671,7 @@ class CLIToolManager {
     }
 
     // 4. Windows Program Files
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const windowsPaths = [
         'C:\\Program Files\\GitHub CLI\\gh.exe',
         'C:\\Program Files (x86)\\GitHub CLI\\gh.exe',
@@ -705,7 +708,9 @@ class CLIToolManager {
    * 1. User configuration (if valid for current platform)
    * 2. Homebrew claude (macOS)
    * 3. System PATH
-   * 4. Windows/macOS/Linux standard locations
+   * 4. Windows where.exe (Windows only - finds executables via PATH + Registry)
+   * 5. NVM paths (Unix only - checks Node.js version managers)
+   * 6. Platform-specific standard locations
    *
    * @returns Detection result for Claude CLI
    */
@@ -719,6 +724,10 @@ class CLIToolManager {
         console.warn(
           `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
         );
+      } else if (isWindows() && !isSecurePath(this.userConfig.claudePath)) {
+        console.warn(
+          `[Claude CLI] User-configured path failed security validation, ignoring: ${this.userConfig.claudePath}`
+        );
       } else {
         const validation = this.validateClaude(this.userConfig.claudePath);
         const result = buildClaudeDetectionResult(
@@ -730,7 +739,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       for (const claudePath of paths.homebrewPaths) {
         if (existsSync(claudePath)) {
           const validation = this.validateClaude(claudePath);
@@ -748,8 +757,18 @@ class CLIToolManager {
       if (result) return result;
     }
 
-    // 4. NVM paths (Unix only) - check before platform paths for better Node.js integration
-    if (process.platform !== 'win32') {
+    // 4. Windows where.exe detection (Windows only - most reliable for custom installs)
+    if (isWindows()) {
+      const whereClaudePath = findWindowsExecutableViaWhere('claude', '[Claude CLI]');
+      if (whereClaudePath) {
+        const validation = this.validateClaude(whereClaudePath);
+        const result = buildClaudeDetectionResult(whereClaudePath, validation, 'system-path', 'Using Windows Claude CLI');
+        if (result) return result;
+      }
+    }
+
+    // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
+    if (isUnix()) {
       try {
         if (existsSync(paths.nvmVersionsDir)) {
           const nodeVersions = readdirSync(paths.nvmVersionsDir, { withFileTypes: true });
@@ -769,7 +788,7 @@ class CLIToolManager {
       }
     }
 
-    // 5. Platform-specific standard locations
+    // 6. Platform-specific standard locations
     for (const claudePath of paths.platformPaths) {
       if (existsSync(claudePath)) {
         const validation = this.validateClaude(claudePath);
@@ -778,7 +797,7 @@ class CLIToolManager {
       }
     }
 
-    // 6. Not found
+    // 7. Not found
     return {
       found: false,
       source: 'fallback',
@@ -915,21 +934,52 @@ class CLIToolManager {
    */
   private validateClaude(claudeCmd: string): ToolValidation {
     try {
-      // On Windows, .cmd files need shell: true to execute properly.
-      // SECURITY NOTE: shell: true is safe here because:
-      // 1. claudeCmd comes from internal path detection (user config or known system paths)
-      // 2. Only '--version' is passed as an argument (no user input)
-      // If claudeCmd origin ever changes to accept user input, use escapeShellArgWindows.
-      const needsShell = process.platform === 'win32' &&
-        (claudeCmd.endsWith('.cmd') || claudeCmd.endsWith('.bat'));
+      const trimmedCmd = claudeCmd.trim();
+      const unquotedCmd =
+        trimmedCmd.startsWith('"') && trimmedCmd.endsWith('"')
+          ? trimmedCmd.slice(1, -1)
+          : trimmedCmd;
 
-      const version = execFileSync(claudeCmd, ['--version'], {
-        encoding: 'utf-8',
-        timeout: 5000,
-        windowsHide: true,
-        shell: needsShell,
-        env: getAugmentedEnv(),
-      }).trim();
+      const needsShell = shouldUseShell(trimmedCmd);
+      const cmdDir = path.dirname(unquotedCmd);
+      const env = getAugmentedEnv(cmdDir && cmdDir !== '.' ? [cmdDir] : []);
+
+      let version: string;
+
+      if (needsShell) {
+        // For .cmd/.bat files on Windows, use cmd.exe with a quoted command line
+        // /s preserves quotes so paths with spaces are handled correctly.
+        if (!isSecurePath(unquotedCmd)) {
+          return {
+            valid: false,
+            message: `Claude CLI path failed security validation: ${unquotedCmd}`,
+          };
+        }
+        const cmdExe = process.env.ComSpec
+          || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+        const cmdLine = `""${unquotedCmd}" --version"`;
+        const execOptions: ExecFileSyncOptionsWithVerbatim = {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+          windowsVerbatimArguments: true,
+          env,
+        };
+        version = normalizeExecOutput(
+          execFileSync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions)
+        ).trim();
+      } else {
+        // For .exe files and non-Windows, use execFileSync
+        version = normalizeExecOutput(
+          execFileSync(unquotedCmd, ['--version'], {
+            encoding: 'utf-8',
+            timeout: 5000,
+            windowsHide: true,
+            shell: false,
+            env,
+          })
+        ).trim();
+      }
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar
       const match = version.match(/(\d+\.\d+\.\d+)/);
@@ -1023,18 +1073,52 @@ class CLIToolManager {
    */
   private async validateClaudeAsync(claudeCmd: string): Promise<ToolValidation> {
     try {
-      const needsShell = process.platform === 'win32' &&
-        (claudeCmd.endsWith('.cmd') || claudeCmd.endsWith('.bat'));
+      const trimmedCmd = claudeCmd.trim();
+      const unquotedCmd =
+        trimmedCmd.startsWith('"') && trimmedCmd.endsWith('"')
+          ? trimmedCmd.slice(1, -1)
+          : trimmedCmd;
 
-      const { stdout } = await execFileAsync(claudeCmd, ['--version'], {
-        encoding: 'utf-8',
-        timeout: 5000,
-        windowsHide: true,
-        shell: needsShell,
-        env: await getAugmentedEnvAsync(),
-      });
+      const needsShell = shouldUseShell(trimmedCmd);
+      const cmdDir = path.dirname(unquotedCmd);
+      const env = await getAugmentedEnvAsync(cmdDir && cmdDir !== '.' ? [cmdDir] : []);
 
-      const version = stdout.trim();
+      let stdout: string;
+
+      if (needsShell) {
+        // For .cmd/.bat files on Windows, use cmd.exe with a quoted command line
+        // /s preserves quotes so paths with spaces are handled correctly.
+        if (!isSecurePath(unquotedCmd)) {
+          return {
+            valid: false,
+            message: `Claude CLI path failed security validation: ${unquotedCmd}`,
+          };
+        }
+        const cmdExe = process.env.ComSpec
+          || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+        const cmdLine = `""${unquotedCmd}" --version"`;
+        const execOptions: ExecFileAsyncOptionsWithVerbatim = {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+          windowsVerbatimArguments: true,
+          env,
+        };
+        const result = await execFileAsync(cmdExe, ['/d', '/s', '/c', cmdLine], execOptions);
+        stdout = result.stdout;
+      } else {
+        // For .exe files and non-Windows, use execFileAsync
+        const result = await execFileAsync(unquotedCmd, ['--version'], {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+          shell: false,
+          env,
+        });
+        stdout = result.stdout;
+      }
+
+      const version = normalizeExecOutput(stdout).trim();
       const match = version.match(/(\d+\.\d+\.\d+)/);
       const versionStr = match ? match[1] : version.split('\n')[0];
 
@@ -1176,7 +1260,13 @@ class CLIToolManager {
   /**
    * Detect Claude CLI asynchronously (non-blocking)
    *
-   * Same detection logic as detectClaude but uses async validation.
+   * Priority order:
+   * 1. User configuration (if valid for current platform)
+   * 2. Homebrew claude (macOS)
+   * 3. System PATH
+   * 4. Windows where.exe (Windows only - finds executables via PATH + Registry)
+   * 5. NVM paths (Unix only - checks Node.js version managers)
+   * 6. Platform-specific standard locations
    *
    * @returns Promise resolving to detection result
    */
@@ -1190,6 +1280,10 @@ class CLIToolManager {
         console.warn(
           `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
         );
+      } else if (isWindows() && !isSecurePath(this.userConfig.claudePath)) {
+        console.warn(
+          `[Claude CLI] User-configured path failed security validation, ignoring: ${this.userConfig.claudePath}`
+        );
       } else {
         const validation = await this.validateClaudeAsync(this.userConfig.claudePath);
         const result = buildClaudeDetectionResult(
@@ -1201,7 +1295,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       for (const claudePath of paths.homebrewPaths) {
         if (await existsAsync(claudePath)) {
           const validation = await this.validateClaudeAsync(claudePath);
@@ -1219,8 +1313,18 @@ class CLIToolManager {
       if (result) return result;
     }
 
-    // 4. NVM paths (Unix only) - check before platform paths for better Node.js integration
-    if (process.platform !== 'win32') {
+    // 4. Windows where.exe detection (async, non-blocking)
+    if (isWindows()) {
+      const whereClaudePath = await findWindowsExecutableViaWhereAsync('claude', '[Claude CLI]');
+      if (whereClaudePath) {
+        const validation = await this.validateClaudeAsync(whereClaudePath);
+        const result = buildClaudeDetectionResult(whereClaudePath, validation, 'system-path', 'Using Windows Claude CLI');
+        if (result) return result;
+      }
+    }
+
+    // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
+    if (isUnix()) {
       try {
         if (await existsAsync(paths.nvmVersionsDir)) {
           const nodeVersions = await fsPromises.readdir(paths.nvmVersionsDir, { withFileTypes: true });
@@ -1240,7 +1344,7 @@ class CLIToolManager {
       }
     }
 
-    // 5. Platform-specific standard locations
+    // 6. Platform-specific standard locations
     for (const claudePath of paths.platformPaths) {
       if (await existsAsync(claudePath)) {
         const validation = await this.validateClaudeAsync(claudePath);
@@ -1249,7 +1353,7 @@ class CLIToolManager {
       }
     }
 
-    // 6. Not found
+    // 7. Not found
     return {
       found: false,
       source: 'fallback',
@@ -1306,7 +1410,7 @@ class CLIToolManager {
     }
 
     // 3. Homebrew Python (macOS) - simplified async version
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/python3',
         '/opt/homebrew/bin/python3.12',
@@ -1332,7 +1436,7 @@ class CLIToolManager {
 
     // 4. System PATH (augmented)
     const candidates =
-      process.platform === 'win32'
+      isWindows()
         ? ['py -3', 'python', 'python3', 'py']
         : ['python3', 'python'];
 
@@ -1405,7 +1509,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/git',
         '/usr/local/bin/git',
@@ -1443,7 +1547,7 @@ class CLIToolManager {
     }
 
     // 4. Windows-specific detection (async to avoid blocking main process)
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const whereGitPath = await findWindowsExecutableViaWhereAsync('git', '[Git]');
       if (whereGitPath) {
         const validation = await this.validateGitAsync(whereGitPath);
@@ -1511,7 +1615,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/gh',
         '/usr/local/bin/gh',
@@ -1549,7 +1653,7 @@ class CLIToolManager {
     }
 
     // 4. Windows Program Files
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const windowsPaths = [
         'C:\\Program Files\\GitHub CLI\\gh.exe',
         'C:\\Program Files (x86)\\GitHub CLI\\gh.exe',
@@ -1593,9 +1697,7 @@ class CLIToolManager {
     }
 
     const resourcesPath = process.resourcesPath;
-    const isWindows = process.platform === 'win32';
-
-    const pythonPath = isWindows
+    const pythonPath = isWindows()
       ? path.join(resourcesPath, 'python', 'python.exe')
       : path.join(resourcesPath, 'python', 'bin', 'python3');
 

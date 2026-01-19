@@ -107,7 +107,8 @@ dmypy.json
 # ===========================
 # Node.js (apps/frontend)
 # ===========================
-node_modules/
+node_modules
+apps/frontend/node_modules
 .npm
 .yarn/
 .pnp.*
@@ -165,3 +166,8 @@ _bmad-output/
 /docs
 OPUS_ANALYSIS_AND_IDEAS.md
 /.github/agents
+
+# Auto Claude generated files
+.security-key
+/shared_docs
+Agents.md

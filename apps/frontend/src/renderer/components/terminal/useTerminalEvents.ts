@@ -1,13 +1,11 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
-import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 
 interface UseTerminalEventsOptions {
   terminalId: string;
   // Track deliberate recreation scenarios (e.g., worktree switching)
   // When true, skips auto-removal to allow proper recreation
   isRecreatingRef?: RefObject<boolean>;
-  onOutput?: (data: string) => void;
   onExit?: (exitCode: number) => void;
   onTitleChange?: (title: string) => void;
   onClaudeSession?: (sessionId: string) => void;
@@ -16,23 +14,17 @@ interface UseTerminalEventsOptions {
 export function useTerminalEvents({
   terminalId,
   isRecreatingRef,
-  onOutput,
   onExit,
   onTitleChange,
   onClaudeSession,
 }: UseTerminalEventsOptions) {
   // Use refs to always have the latest callbacks without re-registering listeners
   // This prevents duplicate listener registration when callbacks change identity
-  const onOutputRef = useRef(onOutput);
   const onExitRef = useRef(onExit);
   const onTitleChangeRef = useRef(onTitleChange);
   const onClaudeSessionRef = useRef(onClaudeSession);
 
   // Keep refs updated with latest callbacks
-  useEffect(() => {
-    onOutputRef.current = onOutput;
-  }, [onOutput]);
-
   useEffect(() => {
     onExitRef.current = onExit;
   }, [onExit]);
@@ -44,19 +36,6 @@ export function useTerminalEvents({
   useEffect(() => {
     onClaudeSessionRef.current = onClaudeSession;
   }, [onClaudeSession]);
-
-  // Handle terminal output from main process
-  // Only depends on terminalId (stable) to prevent listener re-registration
-  useEffect(() => {
-    const cleanup = window.electronAPI.onTerminalOutput((id, data) => {
-      if (id === terminalId) {
-        terminalBufferManager.append(terminalId, data);
-        onOutputRef.current?.(data);
-      }
-    });
-
-    return cleanup;
-  }, [terminalId]);
 
   // Handle terminal exit
   useEffect(() => {
@@ -100,7 +79,7 @@ export function useTerminalEvents({
     });
 
     return cleanup;
-  }, [terminalId]);
+  }, [terminalId, isRecreatingRef]);
 
   // Handle terminal title change
   useEffect(() => {
@@ -108,6 +87,18 @@ export function useTerminalEvents({
       if (id === terminalId) {
         useTerminalStore.getState().updateTerminal(terminalId, { title });
         onTitleChangeRef.current?.(title);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
+
+  // Handle worktree config change (synced from main process during restoration)
+  // This ensures the worktree label appears after terminal recovery
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalWorktreeConfigChange((id, config) => {
+      if (id === terminalId) {
+        useTerminalStore.getState().setWorktreeConfig(terminalId, config);
       }
     });
 
@@ -136,6 +127,33 @@ export function useTerminalEvents({
     const cleanup = window.electronAPI.onTerminalClaudeBusy((id, isBusy) => {
       if (id === terminalId) {
         useTerminalStore.getState().setClaudeBusy(terminalId, isBusy);
+      }
+    });
+
+    return cleanup;
+  }, [terminalId]);
+
+  // Handle Claude exit (user closed Claude within terminal, returned to shell)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalClaudeExit((id: string) => {
+      if (id === terminalId) {
+        const store = useTerminalStore.getState();
+        const terminal = store.getTerminal(terminalId);
+        // Guard: If terminal has already exited, don't set status back to 'running'
+        // This handles the race condition where terminal exit and Claude exit events
+        // arrive in unexpected order (e.g., user types 'exit' which closes both)
+        if (terminal?.status === 'exited') {
+          return;
+        }
+        // Reset Claude mode - Claude has exited but terminal is still running
+        // Use updateTerminal to set all Claude-related state at once
+        store.updateTerminal(terminalId, {
+          isClaudeMode: false,
+          isClaudeBusy: undefined,
+          claudeSessionId: undefined,
+          status: 'running'  // Terminal is still running, just not in Claude mode
+        });
+        console.warn('[Terminal] Claude exited, reset mode for terminal:', terminalId);
       }
     });
 

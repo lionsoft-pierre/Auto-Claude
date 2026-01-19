@@ -86,10 +86,23 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const totalSubtasks = task.subtasks.length;
 
   // Event Handlers
-  const handleStartStop = () => {
+  const handleStartStop = async () => {
     if (state.isRunning && !state.isStuck) {
       stopTask(task.id);
     } else {
+      // If task is incomplete, validate and reload plan before starting
+      if (state.isIncomplete) {
+        const isValid = await state.reloadPlanForIncompleteTask();
+        if (!isValid) {
+          toast({
+            title: 'Cannot Resume Task',
+            description: 'Failed to load implementation plan. Please try again or check the task files.',
+            variant: 'destructive',
+            duration: 5000,
+          });
+          return;
+        }
+      }
       startTask(task.id);
     }
   };
@@ -105,13 +118,15 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   };
 
   const handleReject = async () => {
-    if (!state.feedback.trim()) {
+    // Allow submission if there's text feedback OR images attached
+    if (!state.feedback.trim() && state.feedbackImages.length === 0) {
       return;
     }
     state.setIsSubmitting(true);
-    await submitReview(task.id, false, state.feedback);
+    await submitReview(task.id, false, state.feedback, state.feedbackImages);
     state.setIsSubmitting(false);
     state.setFeedback('');
+    state.setFeedbackImages([]);
   };
 
   const handleDelete = async () => {
@@ -242,9 +257,18 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
 
     if (state.isIncomplete) {
       return (
-        <Button variant="default" onClick={handleStartStop}>
-          <Play className="mr-2 h-4 w-4" />
-          Resume Task
+        <Button variant="default" onClick={handleStartStop} disabled={state.isLoadingPlan}>
+          {state.isLoadingPlan ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading Plan...
+            </>
+          ) : (
+            <>
+              <Play className="mr-2 h-4 w-4" />
+              Resume Task
+            </>
+          )}
         </Button>
       );
     }
@@ -494,6 +518,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             showConflictDialog={state.showConflictDialog}
                             onFeedbackChange={state.setFeedback}
                             onReject={handleReject}
+                            images={state.feedbackImages}
+                            onImagesChange={state.setFeedbackImages}
                             onMerge={handleMerge}
                             onDiscard={handleDiscard}
                             onShowDiscardDialog={state.setShowDiscardDialog}
@@ -504,6 +530,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             onClose={handleClose}
                             onSwitchToTerminals={onSwitchToTerminals}
                             onOpenInbuiltTerminal={onOpenInbuiltTerminal}
+                            onReviewAgain={state.handleReviewAgain}
                             showPRDialog={state.showPRDialog}
                             isCreatingPR={state.isCreatingPR}
                             onShowPRDialog={state.setShowPRDialog}

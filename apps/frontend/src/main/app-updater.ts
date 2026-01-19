@@ -38,6 +38,9 @@ autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
 // Update channels: 'latest' for stable, 'beta' for pre-release
 type UpdateChannel = 'latest' | 'beta';
 
+// Store interval ID for cleanup during shutdown
+let periodicCheckIntervalId: ReturnType<typeof setInterval> | null = null;
+
 /**
  * Set the update channel for electron-updater.
  * - 'latest': Only receive stable releases (default)
@@ -47,6 +50,9 @@ type UpdateChannel = 'latest' | 'beta';
  */
 export function setUpdateChannel(channel: UpdateChannel): void {
   autoUpdater.channel = channel;
+  // Clear any downloaded update info when channel changes to prevent showing
+  // an Install button for an update from a different channel
+  downloadedUpdateInfo = null;
   console.warn(`[app-updater] Update channel set to: ${channel}`);
 }
 
@@ -61,6 +67,9 @@ if (DEBUG_UPDATER) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+
+// Track downloaded update state so it persists across Settings page navigations
+let downloadedUpdateInfo: AppUpdateInfo | null = null;
 
 /**
  * Initialize the app updater system
@@ -107,6 +116,13 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   // Update downloaded - ready to install
   autoUpdater.on('update-downloaded', (info) => {
     console.warn('[app-updater] Update downloaded:', info.version);
+    // Store downloaded update info so it persists across Settings page navigations
+    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
+    downloadedUpdateInfo = {
+      version: info.version,
+      releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
+      releaseDate: info.releaseDate
+    };
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_DOWNLOADED, {
         version: info.version,
@@ -176,7 +192,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   const FOUR_HOURS = 4 * 60 * 60 * 1000;
   console.warn(`[app-updater] Periodic checks scheduled every ${FOUR_HOURS / 1000 / 60 / 60} hours`);
 
-  setInterval(() => {
+  periodicCheckIntervalId = setInterval(() => {
     console.warn('[app-updater] Performing periodic update check');
     autoUpdater.checkForUpdates().catch((error) => {
       console.error('[app-updater] ❌ Periodic update check failed:', error.message);
@@ -215,9 +231,10 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
       return null;
     }
 
+    // releaseNotes can be string | ReleaseNoteInfo[] | null | undefined, only use if string
     return {
       version: result.updateInfo.version,
-      releaseNotes: result.updateInfo.releaseNotes as string | undefined,
+      releaseNotes: typeof result.updateInfo.releaseNotes === 'string' ? result.updateInfo.releaseNotes : undefined,
       releaseDate: result.updateInfo.releaseDate
     };
   } catch (error) {
@@ -254,6 +271,15 @@ export function quitAndInstall(): void {
  */
 export function getCurrentVersion(): string {
   return autoUpdater.currentVersion.version;
+}
+
+/**
+ * Get downloaded update info if an update has been downloaded and is ready to install.
+ * This allows the UI to show "Install and Restart" even if the user opens Settings
+ * after the download completed in the background.
+ */
+export function getDownloadedUpdateInfo(): AppUpdateInfo | null {
+  return downloadedUpdateInfo;
 }
 
 /**
@@ -422,6 +448,9 @@ export async function setUpdateChannelWithDowngradeCheck(
   triggerDowngradeCheck = false
 ): Promise<AppUpdateInfo | null> {
   autoUpdater.channel = channel;
+  // Clear any downloaded update info when channel changes to prevent showing
+  // an Install button for an update from a different channel
+  downloadedUpdateInfo = null;
   console.warn(`[app-updater] Update channel set to: ${channel}`);
 
   // If switching to stable and downgrade check requested, look for stable version
@@ -464,5 +493,16 @@ export async function downloadStableVersion(): Promise<void> {
   } finally {
     // Reset allowDowngrade to prevent unintended downgrades in normal update checks
     autoUpdater.allowDowngrade = false;
+  }
+}
+
+/**
+ * Stop periodic update checks - called during app shutdown
+ */
+export function stopPeriodicUpdates(): void {
+  if (periodicCheckIntervalId) {
+    clearInterval(periodicCheckIntervalId);
+    periodicCheckIntervalId = null;
+    console.warn('[app-updater] Periodic update checks stopped');
   }
 }

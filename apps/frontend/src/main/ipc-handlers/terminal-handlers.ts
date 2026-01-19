@@ -7,9 +7,9 @@ import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import { TerminalManager } from '../terminal-manager';
 import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
-import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocationAsync } from '../claude-cli-utils';
+import { readSettingsFileAsync } from '../settings-utils';
 
 
 /**
@@ -19,6 +19,7 @@ export function registerTerminalHandlers(
   terminalManager: TerminalManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
+
   // ============================================
   // Terminal Operations
   // ============================================
@@ -26,7 +27,15 @@ export function registerTerminalHandlers(
   ipcMain.handle(
     IPC_CHANNELS.TERMINAL_CREATE,
     async (_, options: TerminalCreateOptions): Promise<IPCResult> => {
-      return terminalManager.create(options);
+      try {
+        const result = await terminalManager.create(options);
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create terminal (exception)'
+        };
+      }
     }
   );
 
@@ -54,9 +63,16 @@ export function registerTerminalHandlers(
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE,
     (_, id: string, cwd?: string) => {
-      // Use async version to avoid blocking main process during CLI detection
-      terminalManager.invokeClaudeAsync(id, cwd).catch((error) => {
-        console.error('[terminal-handlers] Failed to invoke Claude:', error);
+      // Wrap in async IIFE to allow async settings read without blocking
+      (async () => {
+        // Read settings asynchronously to check for YOLO mode (dangerously skip permissions)
+        const settings = await readSettingsFileAsync();
+        const dangerouslySkipPermissions = settings?.dangerouslySkipPermissions === true;
+
+        // Use async version to avoid blocking main process during CLI detection
+        await terminalManager.invokeClaudeAsync(id, cwd, undefined, dangerouslySkipPermissions);
+      })().catch((error) => {
+        console.warn('[terminal-handlers] Failed to invoke Claude:', error);
       });
     }
   );
@@ -184,108 +200,42 @@ export function registerTerminalHandlers(
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_PROFILE_SET_ACTIVE,
     async (_, profileId: string): Promise<IPCResult> => {
-      debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] ========== PROFILE SWITCH START ==========');
-      debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Requested profile ID:', profileId);
-
       try {
         const profileManager = getClaudeProfileManager();
-        const previousProfile = profileManager.getActiveProfile();
-        const previousProfileId = previousProfile.id;
-        const newProfile = profileManager.getProfile(profileId);
-
-        debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Previous profile:', {
-          id: previousProfile.id,
-          name: previousProfile.name,
-          hasOAuthToken: !!previousProfile.oauthToken,
-          isDefault: previousProfile.isDefault
-        });
-
-        debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] New profile:', newProfile ? {
-          id: newProfile.id,
-          name: newProfile.name,
-          hasOAuthToken: !!newProfile.oauthToken,
-          isDefault: newProfile.isDefault
-        } : 'NOT FOUND');
+        const previousProfileId = profileManager.getActiveProfile().id;
 
         const success = profileManager.setActiveProfile(profileId);
-        debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] setActiveProfile result:', success);
 
         if (!success) {
-          debugError('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Profile not found, aborting');
           return { success: false, error: 'Profile not found' };
         }
 
         // If the profile actually changed, restart Claude in active terminals
         // This ensures existing Claude sessions use the new profile's OAuth token
         const profileChanged = previousProfileId !== profileId;
-        debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Profile changed:', profileChanged, {
-          previousProfileId,
-          newProfileId: profileId
-        });
 
         if (profileChanged) {
           const activeTerminalIds = terminalManager.getActiveTerminalIds();
-          debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Active terminal IDs:', activeTerminalIds);
-
           const switchPromises: Promise<void>[] = [];
-          const terminalsInClaudeMode: string[] = [];
-          const terminalsNotInClaudeMode: string[] = [];
 
           for (const terminalId of activeTerminalIds) {
-            const isClaudeMode = terminalManager.isClaudeMode(terminalId);
-            debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Terminal check:', {
-              terminalId,
-              isClaudeMode
-            });
-
-            if (isClaudeMode) {
-              terminalsInClaudeMode.push(terminalId);
-              debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Queuing terminal for profile switch:', terminalId);
+            if (terminalManager.isClaudeMode(terminalId)) {
               switchPromises.push(
                 terminalManager.switchClaudeProfile(terminalId, profileId)
-                  .then(() => {
-                    debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Terminal profile switch SUCCESS:', terminalId);
-                  })
-                  .catch((err) => {
-                    debugError('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Terminal profile switch FAILED:', terminalId, err);
-                    throw err; // Re-throw so Promise.allSettled correctly reports rejections
-                  })
+                  .then(() => undefined)
+                  .catch(() => undefined)
               );
-            } else {
-              terminalsNotInClaudeMode.push(terminalId);
             }
           }
 
-          debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Terminal summary:', {
-            total: activeTerminalIds.length,
-            inClaudeMode: terminalsInClaudeMode.length,
-            notInClaudeMode: terminalsNotInClaudeMode.length,
-            terminalsToSwitch: terminalsInClaudeMode,
-            terminalsSkipped: terminalsNotInClaudeMode
-          });
-
           // Wait for all switches to complete (but don't fail the main operation if some fail)
           if (switchPromises.length > 0) {
-            debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Waiting for', switchPromises.length, 'terminal switches...');
-            const results = await Promise.allSettled(switchPromises);
-            const fulfilled = results.filter(r => r.status === 'fulfilled').length;
-            const rejected = results.filter(r => r.status === 'rejected').length;
-            debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Switch results:', {
-              total: results.length,
-              fulfilled,
-              rejected
-            });
-          } else {
-            debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] No terminals in Claude mode to switch');
+            await Promise.allSettled(switchPromises);
           }
-        } else {
-          debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Same profile selected, no terminal switches needed');
         }
 
-        debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] ========== PROFILE SWITCH COMPLETE ==========');
         return { success: true };
       } catch (error) {
-        debugError('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] EXCEPTION:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to set active Claude profile'
@@ -314,6 +264,7 @@ export function registerTerminalHandlers(
     async (_, profileId: string): Promise<IPCResult> => {
       try {
         const profileManager = getClaudeProfileManager();
+
         const profile = profileManager.getProfile(profileId);
         if (!profile) {
           return { success: false, error: 'Profile not found' };
@@ -324,7 +275,6 @@ export function registerTerminalHandlers(
           const { mkdirSync, existsSync } = await import('fs');
           if (!existsSync(profile.configDir)) {
             mkdirSync(profile.configDir, { recursive: true });
-            debugLog('[IPC] Created config directory:', profile.configDir);
           }
         }
 
@@ -332,13 +282,6 @@ export function registerTerminalHandlers(
         // This is needed because claude setup-token requires TTY/raw mode
         const terminalId = `claude-login-${profileId}-${Date.now()}`;
         const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp';
-
-        debugLog('[IPC] Initializing Claude profile:', {
-          profileId,
-          profileName: profile.name,
-          configDir: profile.configDir,
-          isDefault: profile.isDefault
-        });
 
         // Create a new terminal for the login process
         const createResult = await terminalManager.create({ id: terminalId, cwd: homeDir });
@@ -355,14 +298,11 @@ export function registerTerminalHandlers(
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Build the login command with the profile's config dir
-        // Use platform-specific syntax and escaping for environment variables
+        // Use full path to claude CLI - no need to modify PATH since we have the absolute path
         let loginCommand: string;
-        const { command: claudeCmd, env: claudeEnv } = await getClaudeCliInvocationAsync();
-        const pathPrefix = claudeEnv.PATH
-          ? (process.platform === 'win32'
-              ? `set "PATH=${escapeShellArgWindows(claudeEnv.PATH)}" && `
-              : `export PATH=${escapeShellArg(claudeEnv.PATH)} && `)
-          : '';
+        const { command: claudeCmd } = await getClaudeCliInvocationAsync();
+
+        // Use the full path directly - escaping only needed for paths with spaces
         const shellClaudeCmd = process.platform === 'win32'
           ? `"${escapeShellArgWindows(claudeCmd)}"`
           : escapeShellArg(claudeCmd);
@@ -372,18 +312,17 @@ export function registerTerminalHandlers(
             // SECURITY: Use Windows-specific escaping for cmd.exe
             const escapedConfigDir = escapeShellArgWindows(profile.configDir);
             // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
-            loginCommand = `${pathPrefix}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && ${shellClaudeCmd} setup-token`;
+            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && ${shellClaudeCmd} setup-token`;
           } else {
             // SECURITY: Use POSIX escaping for bash/zsh
             const escapedConfigDir = escapeShellArg(profile.configDir);
             // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
-            loginCommand = `${pathPrefix}export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && ${shellClaudeCmd} setup-token`;
+            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && ${shellClaudeCmd} setup-token`;
           }
         } else {
-          loginCommand = `${pathPrefix}${shellClaudeCmd} setup-token`;
+          // Simple command for default profile - just run setup-token
+          loginCommand = `${shellClaudeCmd} setup-token`;
         }
-
-        debugLog('[IPC] Sending login command to terminal:', loginCommand);
 
         // Write the login command to the terminal
         terminalManager.write(terminalId, `${loginCommand}\r`);
@@ -407,7 +346,6 @@ export function registerTerminalHandlers(
           }
         };
       } catch (error) {
-        debugError('[IPC] Failed to initialize Claude profile:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to initialize Claude profile'
@@ -428,7 +366,6 @@ export function registerTerminalHandlers(
         }
         return { success: true };
       } catch (error) {
-        debugError('[IPC] Failed to set OAuth token:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to set OAuth token'
@@ -640,7 +577,7 @@ export function registerTerminalHandlers(
     (_, id: string, sessionId?: string) => {
       // Use async version to avoid blocking main process during CLI detection
       terminalManager.resumeClaudeAsync(id, sessionId).catch((error) => {
-        console.error('[terminal-handlers] Failed to resume Claude:', error);
+        console.warn('[terminal-handlers] Failed to resume Claude:', error);
       });
     }
   );
@@ -651,7 +588,7 @@ export function registerTerminalHandlers(
     IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME,
     (_, id: string) => {
       terminalManager.activateDeferredResume(id).catch((error) => {
-        console.error('[terminal-handlers] Failed to activate deferred Claude resume:', error);
+        console.warn('[terminal-handlers] Failed to activate deferred resume:', error);
       });
     }
   );
@@ -724,6 +661,26 @@ export function registerTerminalHandlers(
       }
     }
   );
+
+  // Update terminal display orders after drag-drop reorder
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_UPDATE_DISPLAY_ORDERS,
+    async (
+      _,
+      projectPath: string,
+      orders: Array<{ terminalId: string; displayOrder: number }>
+    ): Promise<IPCResult> => {
+      try {
+        terminalManager.updateDisplayOrders(projectPath, orders);
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update display orders'
+        };
+      }
+    }
+  );
 }
 
 /**
@@ -742,6 +699,4 @@ export function initializeUsageMonitorForwarding(mainWindow: BrowserWindow): voi
   monitor.on('show-swap-notification', (notification: unknown) => {
     mainWindow.webContents.send(IPC_CHANNELS.PROACTIVE_SWAP_NOTIFICATION, notification);
   });
-
-  debugLog('[terminal-handlers] Usage monitor event forwarding initialized');
 }

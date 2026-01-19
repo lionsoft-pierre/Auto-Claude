@@ -12,7 +12,8 @@ import {
   PointerSensor,
   KeyboardSensor,
   useSensor,
-  useSensors
+  useSensors,
+  closestCenter,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -34,6 +35,7 @@ import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useTaskStore } from '../stores/task-store';
 import { useFileExplorerStore } from '../stores/file-explorer-store';
+import { TERMINAL_DOM_UPDATE_DELAY_MS } from '../../shared/constants';
 import type { SessionDateInfo } from '../../shared/types';
 
 interface TerminalGridProps {
@@ -76,6 +78,11 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
 
   // Expanded terminal state - when set, this terminal takes up the full grid space
   const [expandedTerminalId, setExpandedTerminalId] = useState<string | null>(null);
+
+  // Reset expanded terminal when project changes
+  useEffect(() => {
+    setExpandedTerminalId(null);
+  }, [projectPath]);
 
   // Fetch available session dates when project changes
   useEffect(() => {
@@ -142,11 +149,17 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       if (result.success && result.data) {
         console.warn(`[TerminalGrid] Main process restored ${result.data.restored} sessions from ${date}`);
 
+        // Sort sessions by displayOrder before restoring to preserve user's tab ordering
+        const sortedSessions = [...sessionsToRestore].sort((a, b) => {
+          const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
+          const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
+          return orderA - orderB;
+        });
+
         // Add each successfully restored session to the renderer's terminal store
         for (const sessionResult of result.data.sessions) {
           if (sessionResult.success) {
-            // Find the full session data
-            const fullSession = sessionsToRestore.find(s => s.id === sessionResult.id);
+            const fullSession = sortedSessions.find(s => s.id === sessionResult.id);
             if (fullSession) {
               console.warn(`[TerminalGrid] Adding restored terminal to store: ${fullSession.id}`);
               addRestoredTerminal(fullSession);
@@ -286,23 +299,51 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
 
       if (activeId !== overId && terminals.some(t => t.id === overId)) {
         reorderTerminals(activeId, overId);
+
+        // Persist the new order to disk so it survives app restarts
+        // Use a microtask to ensure the store has updated before we read the new order
+        if (projectPath) {
+          queueMicrotask(async () => {
+            const updatedTerminals = useTerminalStore.getState().terminals;
+            const orders = updatedTerminals
+              .filter(t => t.projectPath === projectPath || !t.projectPath)
+              .map(t => ({ terminalId: t.id, displayOrder: t.displayOrder ?? 0 }));
+            try {
+              const result = await window.electronAPI.updateTerminalDisplayOrders(projectPath, orders);
+              if (!result.success) {
+                console.warn('[TerminalGrid] Failed to persist terminal order:', result.error);
+              }
+            } catch (error) {
+              console.warn('[TerminalGrid] Failed to persist terminal order:', error);
+            }
+          });
+        }
+
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('terminal-refit-all'));
+        }, TERMINAL_DOM_UPDATE_DELAY_MS);
       }
       return;
     }
 
     // Handle file drop on terminal
     const overId = over.id.toString();
-    if (overId.startsWith('terminal-')) {
-      const terminalId = overId.replace('terminal-', '');
+    let terminalId: string | null = null;
 
-      if (activeData?.path) {
-        // Quote the path if it contains spaces
-        const quotedPath = activeData.path.includes(' ') ? `"${activeData.path}"` : activeData.path;
-        // Insert the file path into the terminal with a trailing space
-        window.electronAPI.sendTerminalInput(terminalId, quotedPath + ' ');
-      }
+    if (overId.startsWith('terminal-')) {
+      terminalId = overId.replace('terminal-', '');
+    } else if (terminals.some(t => t.id === overId)) {
+      // closestCenter might return the sortable ID instead of droppable ID
+      terminalId = overId;
     }
-  }, [reorderTerminals]);
+
+    if (terminalId && activeData?.path) {
+      // Quote the path if it contains spaces
+      const quotedPath = activeData.path.includes(' ') ? `"${activeData.path}"` : activeData.path;
+      // Insert the file path into the terminal with a trailing space
+      window.electronAPI.sendTerminalInput(terminalId, quotedPath + ' ');
+    }
+  }, [reorderTerminals, terminals]);
 
   // Calculate grid layout based on number of terminals
   const gridLayout = useMemo(() => {
@@ -358,6 +399,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
